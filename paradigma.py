@@ -5,6 +5,12 @@ import serial
 import getopt
 import os
 
+def UnsignedToSignedInt(d) :
+	if d > 32768:
+		return d - 65536
+	else:
+		return d
+
 def BcdToDec(c) :
 	return (c >> 4)*10 + (c&0x0f)
 
@@ -29,7 +35,7 @@ class Dataset1(object):
 		return DateTime(self.dataset[0:4])
 
 	def Aussentemp(self):
-		return (self.dataset[5] + self.dataset[4]*256) / 10.0
+		return UnsignedToSignedInt(self.dataset[5] + self.dataset[4]*256) / 10.0
 
 	def Warmwassertemp(self):
 		return (self.dataset[7] + self.dataset[6]*256) / 10.0
