@@ -4,6 +4,18 @@ import sys
 import serial
 import getopt
 import os
+import paho.mqtt.client as mqtt
+
+# Pathname for where to store the paradigma data
+dir_name = "/dev/paradigma"
+
+# Remember if we are connected to the MQTT broker
+mqtt_connected = false
+
+# Make sure the path exists. Create it if necessary
+if not os.path.exists(dir_name):
+	os.makedirs(dir_name)
+
 
 def UnsignedToSignedInt(d) :
 	if d > 32768:
@@ -18,6 +30,8 @@ def writeInFile(fn, d) :
 	f = open ("/dev/paradigma/"+fn, "w")
 	f.write(str(d))
 	f.close()
+	if (mqtt_connected):
+		client.publish("fhem/Heizung/"+fn, d)
 
 class DateTime(object):
 	def __init__(self, dt):
@@ -118,7 +132,7 @@ class Dataset2(object) :
 		return (self.dataset[21] + (self.dataset[20]<<8) + (self.dataset[19]<<16) + (self.dataset[18]<<24))
 
 	def StoercodeKessel(self) :
-		return (self.dataset[23] + (self.dataset[22]<<8))
+		return UnsignedToSignedInt(self.dataset[23] + (self.dataset[22]<<8))
 
 	def StoercodeFuehler(self) :
 		return self.dataset[24]
@@ -332,8 +346,30 @@ def _listenData(did):
 
 	return 1
 	
+# Callback to indicate that connection to MQTT server was successful
+def on_connect(client, userdata, flags, rc):
+	print ('Connected with result code : ' + str(rc))
+	mqtt_connected = true
 
-			
+def on_disconnect(client, userdata, rc):
+	if rx != 0:
+		print ('Unexpected disconnection!')
+	else
+		print ('Disconnected !') 
+	mqtt_connected = false
+
+def on_message(client, userdata, message):
+	print ('Received message ' + str(message.payload) + ' on topic ' + message.topic + ' with QoS ' + str(message.qos))
+
+
+# Create the MQTT client
+client = mqtt.Client()
+client.on_connect = on_connect
+client.on_disconnect = on_disconnect
+client.on_message = on_message
+client.connect("localhost", 1883, 60)
+client.loop_start()			
+
 
 opts, extraparams = getopt.getopt(sys.argv[1:], "coql", ["close", "open", "query", "listen"])
 
@@ -362,6 +398,8 @@ for o,p in opts :
 		exit(0)
 
 serial.Close(ser)
+
+client.disconnect()
 
 sys.exit(0)
 
