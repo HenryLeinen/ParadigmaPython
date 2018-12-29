@@ -1,20 +1,158 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 
 import sys
 import serial
 import getopt
 import os
+import time
+import logging
 import paho.mqtt.client as mqtt
+import paho.mqtt.publish as publish
+
+logging.basicConfig(filename="paradigma.log", level=logging.INFO)
+
+# Set the target MQTT host to whom to post
+mqtt_host = "leinihomesrv"
+
+# Set the client ID which identifies us
+mqtt_client_id = "LeiniPi1:paradigma.py"
 
 # Pathname for where to store the paradigma data
 dir_name = "/dev/paradigma"
 
 # Remember if we are connected to the MQTT broker
-mqtt_connected = false
+mqtt_connected = False
 
 # Make sure the path exists. Create it if necessary
 if not os.path.exists(dir_name):
 	os.makedirs(dir_name)
+
+mqtt_init = [	{'topic':"homie/Paradigma/$name", 	'payload':"Paradigma", 		'retain':"true"},
+		{'topic':"homie/Paradigma/$homie", 	'payload':"3.0", 		'retain':"true"},
+		{'topic':"homie/Paradigma/$state", 	'payload':"ready",		'retain':"true"},
+		{'topic':"homie/Paradigma/$extensions",	'payload':""},
+		{'topic':"homie/Paradigma/$implementation", 'payload':"Raspberry Pi Zero"},
+		{'topic':"homie/Paradigma/$nodes", 	'payload':"Fuehler,Warmwasser,Puffer,Heizkreis[],Kessel", 	'retain':"true"},
+
+		{'topic':"homie/Paradigma/Fuehler/$name",	'payload':"Fuehler", 	'retain':"true"},
+		{'topic':"homie/Paradigma/Fuehler/$properties",	'payload':"Aussentemperatur,Stoercode", 'retain':"true"},
+		{'topic':"homie/Paradigma/Fuehler/Aussentemperatur/$name", 	'payload':"Aussentemperatur",	'retain':"true"},
+		{'topic':"homie/Paradigma/Fuehler/Aussentemperatur/$unit",	'payload':"%°C",			'retain':"true"},
+		{'topic':"homie/Paradigma/Fuehler/Aussentemperatur/$datatype",	'payload':"float",		'retain':"true"},
+		{'topic':"homie/Paradigma/Fuehler/Aussentemperatur/$format",	'payload':"-40:80",		'retain':"true"},
+		{'topic':"homie/Paradigma/Fuehler/Aussentemperatur/$settable",	'payload':"false",		'retain':"true"},
+		{'topic':"homie/Paradigma/Fuehler/Stoercode/$name",		'payload':"Stoercode",		'retain':"true"},
+		{'topic':"homie/Paradigma/Fuehler/Stoercode/$datatype",		'payload':"integer",		'retain':"true"},
+		{'topic':"homie/Paradigma/Fuehler/Stoercode/$settable",		'payload':"false",		'retain':"true"},
+
+		{'topic':"homie/Paradigma/Warmwasser/$name",	'payload':"Warmwasser Temperatur", 'retain':"true"},
+		{'topic':"homie/Paradigma/Warmwasser/$properties",'payload':"Temperatur,Soll", 'retain':"true"},
+		{'topic':"homie/Paradigma/Warmwasser/Temperatur/$name",		'payload':"Warmwasser Temperatur", 	'retain':"true"},
+		{'topic':"homie/Paradigma/Warmwasser/Temperatur/$unit",		'payload':"°C",			'retain':"true"},
+		{'topic':"homie/Paradigma/Warmwasser/Temperatur/$datatype",	'payload':"float",		'retain':"true"},
+		{'topic':"homie/Paradigma/Warmwasser/Temperatur/$settable",	'payload':"false",		'retain':"true"},
+		{'topic':"homie/Paradigma/Warmwasser/Soll/$name",		'payload':"Warmwasser Solltemperatur",	'retain':"true"},
+		{'topic':"homie/Paradigma/Warmwasser/Soll/$unit",		'payload':"°C",			'retain':"true"},
+		{'topic':"homie/Paradigma/Warmwasser/Soll/$settable",		'payload':"false",		'retain':"true"},
+		{'topic':"homie/Paradigma/Warmwasser/Soll/$datatype",		'payload':"float",		'retain':"true"},
+
+		{'topic':"homie/Paradigma/Puffer/$name",	'payload':"Puffer Temperaturen",	'retain':"true"},
+		{'topic':"homie/Paradigma/Puffer/$properties",	'payload':"Oben,Unten,Soll",	'retain':"true"},
+		{'topic':"homie/Paradigma/Puffer/Oben/$name",			'payload':"Puffertemperatur Oben",	'retain':"true"},
+		{'topic':"homie/Paradigma/Puffer/Oben/$unit",			'payload':"°C",			'retain':"true"},
+		{'topic':"homie/Paradigma/Puffer/Oben/$datatype",		'payload':"float",		'retain':"true"},
+		{'topic':"homie/Paradigma/Puffer/Oben/$settable",		'payload':"false",		'retain':"true"},
+		{'topic':"homie/Paradigma/Puffer/Unten/$name",			'payload':"Puffertemperatur Unten",	'retain':"true"},
+		{'topic':"homie/Paradigma/Puffer/Unten/$unit",			'payload':"°C",			'retain':"true"},
+		{'topic':"homie/Paradigma/Puffer/Unten/$datatype",		'payload':"float",		'retain':"true"},
+		{'topic':"homie/Paradigma/Puffer/Unten/$settable",		'payload':"false",		'retain':"true"},
+		{'topic':"homie/Paradigma/Puffer/Soll/$name",			'payload':"Puffer Solltemperatur",	'retain':"true"},
+		{'topic':"homie/Paradigma/Puffer/Soll/$unit",			'payload':"°C",			'retain':"true"},
+		{'topic':"homie/Paradigma/Puffer/Soll/$datatype",		'payload':"float",		'retain':"true"},
+		{'topic':"homie/Paradigma/Puffer/Soll/$settable",		'payload':"false",		'retain':"true"},
+
+		{'topic':"homie/Paradigma/Kessel/$name",	'payload':"Kessel",			'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/$properties",	'payload':"Vorlauf,Ruecklauf,Zirkulationstemperatur,Betriebsstunden,Starts,Stoercode",	'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/Vorlauf/$name",		'payload':"Vorlauftemperatur",	'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/Vorlauf/$unit",		'payload':"°C",			'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/Vorlauf/$datatype",		'payload':"float",		'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/Vorlauf/$settable",		'payload':"false",		'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/Ruecklauf/$name",		'payload':"Ruecklauftemperatur",	'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/Ruecklauf/$unit",		'payload':"°C",			'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/Ruecklauf/$datatype",		'payload':"float",		'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/Ruecklauf/$settable",		'payload':"false",		'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/Zirkulationstemperatur/$name",		'payload':"Zirkulationstemperatur",	'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/Zirkulationstemperatur/$unit",		'payload':"°C",			'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/Zirkulationstemperatur/$datatype",		'payload':"float",		'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/Zirkulationstemperatur/$settable",		'payload':"false",		'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/Betriebsstunden/$name",		'payload':"Betriebsstunden",	'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/Betriebsstunden/$unit",		'payload':"h",			'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/Betriebsstunden/$datatype",		'payload':"integer",		'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/Betriebsstunden/$settable",		'payload':"false",		'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/Starts/$name",		'payload':"Anzahl Kesselstarts",	'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/Starts/$unit",		'payload':" ",			'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/Starts/$datatype",		'payload':"integer",		'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/Starts/$settable",		'payload':"false",		'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/Stoercode/$name",		'payload':"Stoercode Kessel",	'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/Stoercode/$datatype",		'payload':"integer",		'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/Stoercode/$settable",		'payload':"false",		'retain':"true"},
+
+		{'topic':"homie/Paradigma/Heizkreis/$name",		'payload':"Heizkreise",			'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/$properties",	'payload':"Raumtemperatur,Vorlauftemperatur,Ruecklauftemperatur,Raumsoll,Vorlaufsoll,Ruecklaufsoll,Betriebsart,Leistung", 'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/$array",		'payload':"1-2",			'retain':"true"},
+
+		{'topic':"homie/Paradigma/Heizkreis/Raumtemperatur/$name",	'payload':"Raumtemperatur", 	'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Raumtemperatur/$settable",	'payload':"false",		'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Raumtemperatur/$unit",	'payload':"°C",			'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Raumtemperatur/$datatype",	'payload':"float",		'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Vorlauftemperatur/$name",	'payload':"Vorlauf Temperatur", 	'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Vorlauftemperatur/$settable",	'payload':"false",		'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Vorlauftemperatur/$unit",	'payload':"°C",			'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Vorlauftemperatur/$datatype",	'payload':"float",		'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Ruecklauftemperatur/$name",	'payload':"Ruecklauf Temperatur", 	'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Ruecklauftemperatur/$settable",	'payload':"false",		'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Ruecklauftemperatur/$unit",	'payload':"°C",			'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Ruecklauftemperatur/$datatype",	'payload':"float",		'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Raumsoll/$name",	'payload':"Solltemperatur Raum", 	'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Raumsoll/$settable",	'payload':"false",		'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Raumsoll/$unit",	'payload':"°C",			'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Raumsoll/$datatype",	'payload':"float",		'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Vorlaufsoll/$name",	'payload':"Solltemperatur Vorlauf", 	'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Vorlaufsoll/$settable",	'payload':"false",		'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Vorlaufsoll/$unit",	'payload':"°C",			'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Vorlaufsoll/$datatype",	'payload':"float",		'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Ruecklaufsoll/$name",	'payload':"Solltemperatur Ruecklauf", 	'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Ruecklaufsoll/$settable",	'payload':"false",		'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Ruecklaufsoll/$unit",	'payload':"°C",			'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Ruecklaufsoll/$datatype",	'payload':"float",		'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Betriebsart/$name",	'payload':"Betriebsart", 	'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Betriebsart/$settable",	'payload':"false",		'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Betriebsart/$datatype",	'payload':"integer",		'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Leistung/$name",	'payload':"Leistung", 	'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Leistung/$settable",	'payload':"false",		'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Leistung/$unit",	'payload':"W",			'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Leistung/$datatype",	'payload':"integer",		'retain':"true"},
+
+		{'topic':"homie/Paradigma/Heizkreis_1/Raumtemperatur/$name",	'payload':"Raumtemperatur Heizkreis 1",	'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis_1/Vorlauftemperatur/$name",		'payload':"Vorlauftemperatur Heizkreis 1", 'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis_1/Ruecklauftemperatur/$name",		'payload':"Ruecklauftemperatur Heizkreis 1", 'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis_1/Raumsoll/$name",		'payload':"Solltemperatur Raum Heizkreis 1", 'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis_1/Vorlaufsoll/$name",		'payload':"Solltemperatur Vorlauf Heizkreis 1", 'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis_1/Ruecklaufsoll/$name",		'payload':"Solltemperatur Ruecklauf Heizkreis 1", 'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis_1/Betriebsart/$name",		'payload':"Betriebsart Heizkreis 1", 'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis_1/Leistung/$name",			'payload':"Leistung Heizkreis 1", 'retain':"true"},
+
+		{'topic':"homie/Paradigma/Heizkreis_2/Raumtemperatur/$name",	'payload':"Raumtemperatur Heizkreis 2", 'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis_2/Vorlauftemperatur/$name",		'payload':"Vorlauftemperatur Heizkreis 2", 'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis_2/Ruecklauftemperatur/$name",		'payload':"Ruecklauftemperatur Heizkreis 2", 'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis_2/Raumsoll/$name",		'payload':"Solltemperatur Raum Heizkreis 2", 'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis_2/Vorlaufsoll/$name",		'payload':"Solltemperatur Vorlauf Heizkreis 2", 'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis_2/Ruecklaufsoll/$name",		'payload':"Solltemperatur Ruecklauf Heizkreis 2", 'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis_2/Betriebsart/$name",		'payload':"Betriebsart Heizkreis 2", 'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis_2/Leistung/$name",			'payload':"Leistung Heizkreis 2", 'retain':"true"}
+
+	]
 
 
 def UnsignedToSignedInt(d) :
@@ -26,12 +164,17 @@ def UnsignedToSignedInt(d) :
 def BcdToDec(c) :
 	return (c >> 4)*10 + (c&0x0f)
 
-def writeInFile(fn, d) :
+def writeInFile(fn, d, s) :
+	global mqtt_connected
 	f = open ("/dev/paradigma/"+fn, "w")
 	f.write(str(d))
 	f.close()
 	if (mqtt_connected):
 		client.publish("fhem/Heizung/"+fn, d)
+		client.publish("homie/Paradigma/"+s, d)
+	else :
+		print("mqtt not connected")
+
 
 class DateTime(object):
 	def __init__(self, dt):
@@ -88,19 +231,19 @@ class Dataset1(object):
 		return (self.dataset[29]+ self.dataset[28]*256) /10.0
 
 	def Dump(self):
-		writeInFile("Aussen", self.Aussentemp())
-		writeInFile("Warmwasser", self.Warmwassertemp())
-		writeInFile("Kesselvorlauf", self.Kesselvorlauf())
-		writeInFile("Kesselruecklauf", self.Kesselruecklauf())
-		writeInFile("RaumHK1", self.RaumtemperaturHK1())
-		writeInFile("RaumHK2", self.RaumtemperaturHK2())
-		writeInFile("VorlaufHK1", self.VorlauftemperaturHK1())
-		writeInFile("VorlaufHK2", self.VorlauftemperaturHK2())
-		writeInFile("RuecklaufHK1", self.RuecklauftemperaturHK1())
-		writeInFile("RuecklaufHK2", self.RuecklauftemperaturHK2())
-		writeInFile("PufferOben", self.PuffertemperaturOben())
-		writeInFile("PufferUnter", self.PuffertemperaturUnten())
-		writeInFile("Zirkulation", self.Zirkulationstemperatur())
+		writeInFile("Aussen", self.Aussentemp(), "Fuehler/Aussentemperatur")
+		writeInFile("Warmwasser", self.Warmwassertemp(), "Warmwasser/Temperatur")
+		writeInFile("Kesselvorlauf", self.Kesselvorlauf(), "Kessel/Vorlauf")
+		writeInFile("Kesselruecklauf", self.Kesselruecklauf(), "Kessel/Ruecklauf")
+		writeInFile("RaumHK1", self.RaumtemperaturHK1(), "Heizkreis_1/Raumtemperatur")
+		writeInFile("RaumHK2", self.RaumtemperaturHK2(), "Heizkreis_2/Raumtemperatur")
+		writeInFile("VorlaufHK1", self.VorlauftemperaturHK1(), "Heizkreis_1/Vorlauftemperatur")
+		writeInFile("VorlaufHK2", self.VorlauftemperaturHK2(), "Heizkreis_2/Vorlauftemperatur")
+		writeInFile("RuecklaufHK1", self.RuecklauftemperaturHK1(), "Heizkreis_1/Ruecklauftemperatur")
+		writeInFile("RuecklaufHK2", self.RuecklauftemperaturHK2(), "Heizkreis_2/Ruecklauftemperatur")
+		writeInFile("PufferOben", self.PuffertemperaturOben(), "Puffer/Oben")
+		writeInFile("PufferUnter", self.PuffertemperaturUnten(), "Puffer/Unten")
+		writeInFile("Zirkulation", self.Zirkulationstemperatur(), "Kessel/Zirkulationstemperatur")
 		return 0
 
 class Dataset2(object) :
@@ -159,19 +302,19 @@ class Dataset2(object) :
 		return self.dataset[31]
 
 	def Dump(self) :
-		writeInFile("RaumsollHK1", self.RaumsollHK1())
-		writeInFile("RaumsollHK2", self.RaumsollHK2())
-		writeInFile("VorlaufsollHK1", self.VorlaufsollHK1())
-		writeInFile("VorlaufsollHK2", self.VorlaufsollHK2())
-		writeInFile("Warmassersoll",self.Warmwassersoll())
-		writeInFile("Puffersoll", self.Puffersoll())
-		writeInFile("BetriebsartHK1", self.BetriebsartHK1())
-		writeInFile("LeistungPHK1", self.LeistungPHK1())
-		writeInFile("LeistungPHK2", self.LeistungPHK2())
-		writeInFile("Betriebsstunden", self.Betriebsstunden())
-		writeInFile("AnzahlKesselstarts", self.AnzahlKesselstarts())
-		writeInFile("Stoercode Kessel", self.StoercodeKessel())
-		writeInFile("Stoercode Fuehler", self.StoercodeFuehler())
+		writeInFile("RaumsollHK1", self.RaumsollHK1(), "Heizkreis_1/Raumsoll")
+		writeInFile("RaumsollHK2", self.RaumsollHK2(), "Heizkreis_2/Raumsoll")
+		writeInFile("VorlaufsollHK1", self.VorlaufsollHK1(), "Heizkreis_1/Vorlaufsoll")
+		writeInFile("VorlaufsollHK2", self.VorlaufsollHK2(), "Heizkreis_2/Vorlaufsoll")
+		writeInFile("Warmassersoll",self.Warmwassersoll(), "Warmwasser/Soll")
+		writeInFile("Puffersoll", self.Puffersoll(), "Puffer/Soll")
+		writeInFile("BetriebsartHK1", self.BetriebsartHK1(), "Heizkreis_1/Betriebsart")
+		writeInFile("LeistungPHK1", self.LeistungPHK1(), "Heizkreis_1/Leistung")
+		writeInFile("LeistungPHK2", self.LeistungPHK2(), "Heizkreis_2/Leistung")
+		writeInFile("Betriebsstunden", self.Betriebsstunden(), "Kessel/Betriebsstunden")
+		writeInFile("AnzahlKesselstarts", self.AnzahlKesselstarts(), "Kessel/Starts")
+		writeInFile("Stoercode Kessel", self.StoercodeKessel(), "Kessel/Stoercode")
+		writeInFile("Stoercode Fuehler", self.StoercodeFuehler(), "Fuehler/Stoercode")
 		return 1 
 
 def _getChecksum(data):
@@ -348,27 +491,45 @@ def _listenData(did):
 	
 # Callback to indicate that connection to MQTT server was successful
 def on_connect(client, userdata, flags, rc):
+	global mqtt_connected
+	logging.debug("mqtt connected")
 	print ('Connected with result code : ' + str(rc))
-	mqtt_connected = true
+	mqtt_connected = True
 
 def on_disconnect(client, userdata, rc):
+	global mqtt_connected
 	if rx != 0:
 		print ('Unexpected disconnection!')
-	else
+		logging.debug("Unexpected mqtt disconnect")
+	else :
+		logging.debug("mqtt disconnected")
 		print ('Disconnected !') 
-	mqtt_connected = false
+	mqtt_connected = False
 
 def on_message(client, userdata, message):
 	print ('Received message ' + str(message.payload) + ' on topic ' + message.topic + ' with QoS ' + str(message.qos))
 
 
+
+
 # Create the MQTT client
-client = mqtt.Client()
+client = mqtt.Client(client_id=mqtt_client_id, protocol=mqtt.MQTTv31)
 client.on_connect = on_connect
 client.on_disconnect = on_disconnect
 client.on_message = on_message
-client.connect("localhost", 1883, 60)
-client.loop_start()			
+client.username_pw_set('pi', 'Quantenoptik1')
+client.connect(mqtt_host, 1883, 60)
+
+client.loop_start()
+
+# time.sleep(1)
+
+# Publish the "HOMIE" device describing parts via MQTT
+print ('Start HOMIE-Device publishing')
+for x in mqtt_init:
+	print ('Topic: ' + x['topic'])
+	client.publish(topic=x['topic'], payload=x['payload'], retain=True)
+print ('Done HOMIE-Device publishing')
 
 
 opts, extraparams = getopt.getopt(sys.argv[1:], "coql", ["close", "open", "query", "listen"])
@@ -377,7 +538,8 @@ if (not os.path.exists('/dev/paradigma')) :
 	os.makedirs('/dev/paradigma', 0x777, True)
 
 ser = serial.Serial("/dev/ttyUSB0", timeout=15.0)
-	
+print "Serial was opened !"
+
 for o,p in opts :
 	if o in ['-o', '--open']:
 		print ("Opening")
@@ -395,11 +557,15 @@ for o,p in opts :
 		print ("Listenening for data packets")
 		_listenData(1)
 		_listenData(2)
-		exit(0)
-
-serial.Close(ser)
+#		exit(0)
 
 client.disconnect()
+
+ser.close()
+
+client.loop_stop()
+
+time.sleep(4)
 
 sys.exit(0)
 
