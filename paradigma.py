@@ -584,7 +584,7 @@ client = mqtt.Client(client_id=mqtt_client_id, protocol=mqtt.MQTTv31)
 client.on_connect = on_connect
 client.on_disconnect = on_disconnect
 client.on_message = on_message
-client.username_pw_set('pi', 'Quantenoptik1')
+client.username_pw_set('<username>', '<password>')
 client.connect(mqtt_host, 1883, 60)
 
 client.loop_start()
