@@ -236,7 +236,7 @@ class DateTime(object):
 		self.Hour = BcdToDec(dt[3])
 		self.Minute = BcdToDec(dt[2])
 	def ToString(self):
-		return str(self.Day) + "." + str(self.Month) + " " + str(self.Hour) + ":" + str(self.Minute) 
+		return '{:02d}'.format(self.Day) + "." + '{:02d}'.format(self.Month) + " " + '{:02d}'.format(self.Hour) + ":" + '{:02d}'.format(self.Minute)
 
 class Dataset1(object):
 	def __init__(self, dataset):
@@ -546,13 +546,22 @@ def _listenData(did):
 			processing = False
 
 	return 1
-	
+
+
+# Publish the "HOMIE" device describing parts via MQTT
+def publish_homie_intro():
+	print ('Start HOMIE-Device publishing')
+	for x in mqtt_init:
+			client.publish(topic=x['topic'], payload=x['payload'], retain=True)
+	print ('Done HOMIE-Device publishing')
+
 # Callback to indicate that connection to MQTT server was successful
 def on_connect(client, userdata, flags, rc):
 	global mqtt_connected
 	logging.debug("mqtt connected")
 	print ('Connected with result code : ' + str(rc))
 	mqtt_connected = True
+	publish_homie_intro()
 
 def on_disconnect(client, userdata, rc):
 	global mqtt_connected
@@ -581,13 +590,6 @@ client.connect(mqtt_host, 1883, 60)
 client.loop_start()
 
 # time.sleep(1)
-
-# Publish the "HOMIE" device describing parts via MQTT
-print ('Start HOMIE-Device publishing')
-for x in mqtt_init:
-#	print ('Topic: ' + x['topic'])
-	client.publish(topic=x['topic'], payload=x['payload'], retain=True)
-print ('Done HOMIE-Device publishing')
 
 
 opts, extraparams = getopt.getopt(sys.argv[1:], "coql", ["close", "open", "query", "listen"])
