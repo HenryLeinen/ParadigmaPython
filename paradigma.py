@@ -9,6 +9,7 @@ import time
 import logging
 import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
+import struct
 
 logging.basicConfig(filename="paradigma.log", level=logging.INFO)
 
@@ -53,7 +54,7 @@ errorcodes = {	'-1': "OK",
 mqtt_host = "leinihomesrv"
 
 # Set the client ID which identifies us
-mqtt_client_id = "LeiniPi1:paradigma.py"
+mqtt_client_id = "embedded-mqtt-broker"
 
 # Pathname for where to store the paradigma data
 dir_name = "/dev/paradigma"
@@ -66,10 +67,9 @@ if not os.path.exists(dir_name):
 	os.makedirs(dir_name)
 
 mqtt_init = [	{'topic':"homie/Paradigma/$name", 	'payload':"Paradigma", 		'retain':"true"},
-		{'topic':"homie/Paradigma/$homie", 	'payload':"3.0", 		'retain':"true"},
+		{'topic':"homie/Paradigma/$homie", 	'payload':"4.0", 		'retain':"true"},
 		{'topic':"homie/Paradigma/$state", 	'payload':"ready",		'retain':"true"},
 		{'topic':"homie/Paradigma/$extensions",	'payload':""},
-		{'topic':"homie/Paradigma/$implementation", 'payload':"Raspberry Pi Zero"},
 		{'topic':"homie/Paradigma/$nodes", 	'payload':"General,Fuehler,Warmwasser,Puffer,Kessel,Heizkreis", 	'retain':"true"},
 
 		{'topic':"homie/Paradigma/General/$name",	'payload':"Device Information", 	'retain':"true"},
@@ -114,7 +114,7 @@ mqtt_init = [	{'topic':"homie/Paradigma/$name", 	'payload':"Paradigma", 		'retai
 		{'topic':"homie/Paradigma/Puffer/Soll/$settable",		'payload':"false",		'retain':"true"},
 
 		{'topic':"homie/Paradigma/Kessel/$name",	'payload':"Kessel",			'retain':"true"},
-		{'topic':"homie/Paradigma/Kessel/$properties",	'payload':"Vorlauf,Ruecklauf,Zirkulationstemperatur,Betriebsstunden,Starts,Stoercode",	'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/$properties",	'payload':"Vorlauf,Ruecklauf,Zirkulationstemperatur,Betriebsstunden,Starts,Stoercode,StoercodeText",	'retain':"true"},
 		{'topic':"homie/Paradigma/Kessel/Vorlauf/$name",		'payload':"Vorlauftemperatur",	'retain':"true"},
 		{'topic':"homie/Paradigma/Kessel/Vorlauf/$unit",		'payload':"°C",			'retain':"true"},
 		{'topic':"homie/Paradigma/Kessel/Vorlauf/$datatype",		'payload':"float",		'retain':"true"},
@@ -132,16 +132,19 @@ mqtt_init = [	{'topic':"homie/Paradigma/$name", 	'payload':"Paradigma", 		'retai
 		{'topic':"homie/Paradigma/Kessel/Betriebsstunden/$datatype",		'payload':"integer",		'retain':"true"},
 		{'topic':"homie/Paradigma/Kessel/Betriebsstunden/$settable",		'payload':"false",		'retain':"true"},
 		{'topic':"homie/Paradigma/Kessel/Starts/$name",		'payload':"Anzahl Kesselstarts",	'retain':"true"},
-		{'topic':"homie/Paradigma/Kessel/Starts/$unit",		'payload':" ",			'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/Starts/$unit",		'payload':"#",			'retain':"true"},
 		{'topic':"homie/Paradigma/Kessel/Starts/$datatype",		'payload':"integer",		'retain':"true"},
 		{'topic':"homie/Paradigma/Kessel/Starts/$settable",		'payload':"false",		'retain':"true"},
 		{'topic':"homie/Paradigma/Kessel/Stoercode/$name",		'payload':"Stoercode Kessel",	'retain':"true"},
-		{'topic':"homie/Paradigma/Kessel/Stoercode/$datatype",		'payload':"string",		'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/Stoercode/$datatype",		'payload':"integer",		'retain':"true"},
 		{'topic':"homie/Paradigma/Kessel/Stoercode/$settable",		'payload':"false",		'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/StoercodeText/$name",		'payload':"Stoercode Text Kessel", 'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/StoercodeText/$datatype",	'payload':"string",		'retain':"true"},
+		{'topic':"homie/Paradigma/Kessel/StoercodeText/$settable",	'payload':"false",		'retain':"true"},
 
 		{'topic':"homie/Paradigma/Heizkreis/$name",		'payload':"Heizkreise",			'retain':"true"},
 		{'topic':"homie/Paradigma/Heizkreis/$properties",	'payload':"Raumtemperatur,Vorlauftemperatur,Ruecklauftemperatur,Raumsoll,Vorlaufsoll,Ruecklaufsoll,Betriebsart,Leistung", 'retain':"true"},
-		{'topic':"homie/Paradigma/Heizkreis/$array",		'payload':"0-1",			'retain':"true"},
+#		{'topic':"homie/Paradigma/Heizkreis/$array",		'payload':"0-1",			'retain':"true"},
 
 		{'topic':"homie/Paradigma/Heizkreis/Raumtemperatur/$name",	'payload':"Raumtemperatur", 	'retain':"true"},
 		{'topic':"homie/Paradigma/Heizkreis/Raumtemperatur/$settable",	'payload':"false",		'retain':"true"},
@@ -182,16 +185,16 @@ mqtt_init = [	{'topic':"homie/Paradigma/$name", 	'payload':"Paradigma", 		'retai
 		{'topic':"homie/Paradigma/Heizkreis/Vorlaufsoll/$name",		'payload':"Solltemperatur Vorlauf Heizkreis 1", 'retain':"true"},
 		{'topic':"homie/Paradigma/Heizkreis/Ruecklaufsoll/$name",		'payload':"Solltemperatur Ruecklauf Heizkreis 1", 'retain':"true"},
 		{'topic':"homie/Paradigma/Heizkreis/Betriebsart/$name",		'payload':"Betriebsart Heizkreis 1", 'retain':"true"},
-		{'topic':"homie/Paradigma/Heizkreis/Leistung/$name",			'payload':"Leistung Heizkreis 1", 'retain':"true"},
+		{'topic':"homie/Paradigma/Heizkreis/Leistung/$name",			'payload':"Leistung Heizkreis 1", 'retain':"true"}
 
-		{'topic':"homie/Paradigma/Heizkreis_1/Raumtemperatur/$name",	'payload':"Raumtemperatur Heizkreis 2", 'retain':"true"},
-		{'topic':"homie/Paradigma/Heizkreis_1/Vorlauftemperatur/$name",		'payload':"Vorlauftemperatur Heizkreis 2", 'retain':"true"},
-		{'topic':"homie/Paradigma/Heizkreis_1/Ruecklauftemperatur/$name",		'payload':"Ruecklauftemperatur Heizkreis 2", 'retain':"true"},
-		{'topic':"homie/Paradigma/Heizkreis_1/Raumsoll/$name",		'payload':"Solltemperatur Raum Heizkreis 2", 'retain':"true"},
-		{'topic':"homie/Paradigma/Heizkreis_1/Vorlaufsoll/$name",		'payload':"Solltemperatur Vorlauf Heizkreis 2", 'retain':"true"},
-		{'topic':"homie/Paradigma/Heizkreis_1/Ruecklaufsoll/$name",		'payload':"Solltemperatur Ruecklauf Heizkreis 2", 'retain':"true"},
-		{'topic':"homie/Paradigma/Heizkreis_1/Betriebsart/$name",		'payload':"Betriebsart Heizkreis 2", 'retain':"true"},
-		{'topic':"homie/Paradigma/Heizkreis_1/Leistung/$name",			'payload':"Leistung Heizkreis 2", 'retain':"true"}
+#		{'topic':"homie/Paradigma/Heizkreis_1/Raumtemperatur/$name",	'payload':"Raumtemperatur Heizkreis 2", 'retain':"true"},
+#		{'topic':"homie/Paradigma/Heizkreis_1/Vorlauftemperatur/$name",		'payload':"Vorlauftemperatur Heizkreis 2", 'retain':"true"},
+#		{'topic':"homie/Paradigma/Heizkreis_1/Ruecklauftemperatur/$name",		'payload':"Ruecklauftemperatur Heizkreis 2", 'retain':"true"},
+#		{'topic':"homie/Paradigma/Heizkreis_1/Raumsoll/$name",		'payload':"Solltemperatur Raum Heizkreis 2", 'retain':"true"},
+#		{'topic':"homie/Paradigma/Heizkreis_1/Vorlaufsoll/$name",		'payload':"Solltemperatur Vorlauf Heizkreis 2", 'retain':"true"},
+#		{'topic':"homie/Paradigma/Heizkreis_1/Ruecklaufsoll/$name",		'payload':"Solltemperatur Ruecklauf Heizkreis 2", 'retain':"true"},
+#		{'topic':"homie/Paradigma/Heizkreis_1/Betriebsart/$name",		'payload':"Betriebsart Heizkreis 2", 'retain':"true"},
+#		{'topic':"homie/Paradigma/Heizkreis_1/Leistung/$name",			'payload':"Leistung Heizkreis 2", 'retain':"true"}
 
 	]
 
@@ -214,6 +217,17 @@ def writeInFile(fn, d, s) :
 		client.publish("fhem/Heizung/"+fn, d)
 		client.publish("homie/Paradigma/"+s, d)
 	else :
+		print("mqtt not connected")
+
+def writeInFileInt(fn, d, s):
+	global mqtt_connected
+	f = open ("/dev/paradigma/"+fn, "w")
+	f.write(str(d))
+	f.close()
+	if (mqtt_connected):
+		client.publish("fhem/Heizung/"+fn, d)
+		client.publish("homie/Paradigma/"+s, struct.pack("i",d))
+	else:
 		print("mqtt not connected")
 
 
@@ -358,20 +372,24 @@ class Dataset2(object) :
 
 	def Dump(self) :
 		writeInFile("RaumsollHK1", self.RaumsollHK1(), "Heizkreis/Raumsoll")
-		writeInFile("RaumsollHK2", self.RaumsollHK2(), "Heizkreis_1/Raumsoll")
+#		writeInFile("RaumsollHK2", self.RaumsollHK2(), "Heizkreis_1/Raumsoll")
 		writeInFile("VorlaufsollHK1", self.VorlaufsollHK1(), "Heizkreis/Vorlaufsoll")
-		writeInFile("VorlaufsollHK2", self.VorlaufsollHK2(), "Heizkreis_1/Vorlaufsoll")
+#		writeInFile("VorlaufsollHK2", self.VorlaufsollHK2(), "Heizkreis_1/Vorlaufsoll")
 		writeInFile("Warmassersoll",self.Warmwassersoll(), "Warmwasser/Soll")
 		writeInFile("Puffersoll", self.Puffersoll(), "Puffer/Soll")
 		writeInFile2("BetriebsartHK1", self.BetriebsartHK1(), "Heizkreis/Betriebsart", modes[str(self.BetriebsartHK1())])
+		writeInFile("NiveauHK1", self.NiveauHK1(), "Heizkreis/Niveau")
 		writeInFile("LeistungPHK1", self.LeistungPHK1(), "Heizkreis/Leistung")
-		writeInFile("LeistungPHK2", self.LeistungPHK2(), "Heizkreis_1/Leistung")
-		writeInFile("Betriebsstunden", self.Betriebsstunden(), "Kessel/Betriebsstunden")
-		writeInFile("AnzahlKesselstarts", self.AnzahlKesselstarts(), "Kessel/Starts")
-		writeInFile2("Stoercode Kessel", self.StoercodeKessel(), "Kessel/Stoercode", 
+#		writeInFile("LeistungPHK2", self.LeistungPHK2(), "Heizkreis_1/Leistung")
+		writeInFile   ("Betriebsstunden", self.Betriebsstunden(), "Kessel/Betriebsstunden")
+#		writeInFileInt("Betriebsstunden", self.Betriebsstunden(), "Kessel/Betriebsstunden")
+		writeInFile   ("AnzahlKesselstarts", self.AnzahlKesselstarts(), "Kessel/Starts")
+#		writeInFileInt("AnzahlKesselstarts", self.AnzahlKesselstarts(), "Kessel/Starts")
+		writeInFile2("Stoercode KesselText", self.StoercodeKessel(), "Kessel/StoercodeText", 
 			str(self.StoercodeKessel())
 			+ ": "
 			+ errorcodes[str(self.StoercodeKessel())] )
+		writeInFile("Stoercode Kessel", self.StoercodeKessel(), "Kessel/Stoercode")
 		writeInFile("Stoercode Fuehler", self.StoercodeFuehler(), "Fuehler/Stoercode")
 		return 1
 
@@ -560,8 +578,8 @@ def on_connect(client, userdata, flags, rc):
 	global mqtt_connected
 	logging.debug("mqtt connected")
 	print ('Connected with result code : ' + str(rc))
-	mqtt_connected = True
 	publish_homie_intro()
+	mqtt_connected = True
 
 def on_disconnect(client, userdata, rc):
 	global mqtt_connected
@@ -584,7 +602,7 @@ client = mqtt.Client(client_id=mqtt_client_id, protocol=mqtt.MQTTv31)
 client.on_connect = on_connect
 client.on_disconnect = on_disconnect
 client.on_message = on_message
-client.username_pw_set('<username>', '<password>')
+client.username_pw_set('pi', 'Quantenoptik1')
 client.connect(mqtt_host, 1883, 60)
 
 client.loop_start()
