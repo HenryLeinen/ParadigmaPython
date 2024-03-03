@@ -51,7 +51,7 @@ errorcodes = {	'-1': "OK",
 	}
 
 # Set the target MQTT host to whom to post
-mqtt_host = "leinihomesrv"
+mqtt_host = "leinihomesrv.local"
 
 # Set the client ID which identifies us
 mqtt_client_id = "embedded-mqtt-broker"
@@ -255,12 +255,17 @@ class DateTime(object):
 class Dataset1(object):
 	def __init__(self, dataset):
 		self.dataset = dataset
-	
+		self.newAussentemp = 0
+
 	def DateTime(self):
 		return DateTime(self.dataset[0:4])
 
 	def Aussentemp(self):
 		return UnsignedToSignedInt(self.dataset[5] + self.dataset[4]*256) / 10.0
+
+	def AussentempFilter(self):
+		self.newAussentemp = (3*self.newAussentemp + self.Aussentemp())/4
+		return self.newAussentemp
 
 	def Warmwassertemp(self):
 		return (self.dataset[7] + self.dataset[6]*256) / 10.0
@@ -301,6 +306,7 @@ class Dataset1(object):
 	def Dump(self):
 		writeInFile("Time", self.DateTime().ToString(), "General/time")
 		writeInFile("Aussen", self.Aussentemp(), "Fuehler/Aussentemperatur")
+		writeInFile("AussenFilter", selfAussentempFilter(), "Fuehler/AussentemperaturGefiltert")
 		writeInFile("Warmwasser", self.Warmwassertemp(), "Warmwasser/Temperatur")
 		writeInFile("Kesselvorlauf", self.Kesselvorlauf(), "Kessel/Vorlauf")
 		writeInFile("Kesselruecklauf", self.Kesselruecklauf(), "Kessel/Ruecklauf")
@@ -406,12 +412,12 @@ def _sendRequest(request, response, withData):
 	received_char = 0
 	received_data = 0
 	responseData = []
-	print "Sending request"
+	print ("Sending request")
 	ser.write(''.join([chr(i) for i in request]))
 	while True:
 		output = ser.read(1)
 		if len(output) == 0:
-			print "Sending request"
+			print ("Sending request")
 			ser.write(''.join([chr(i) for i in request]))
 			received_char = 0
 			received_data = 0
@@ -421,12 +427,12 @@ def _sendRequest(request, response, withData):
 				if response[received_char] == ord(output):
 					received_char += 1
 					if received_char == len(response):
-						print "Received response"
+						print ("Received response")
 						if withData == 0:
-							print "done"
+							print ("done")
 							return 1
 						else:
-							print "Awaiting dats"
+							print ("Awaiting data")
 				else:
 					if response[0] == ord(output):
 						received_char = 1
@@ -435,12 +441,12 @@ def _sendRequest(request, response, withData):
 			else:
 				if received_data > 1:
 					if received_data == responseData[1]+2:
-						print "Received checksum" + hex(ord(output))
+						print ("Received checksum" + hex(ord(output)))
 						if ord(output) == _getChecksum(responseData):
-							print "Successfully received data"
+							print ("Successfully received data")
 							return responseData[1], responseData[2:]
 						else:
-							print "Received data has checksum error. (Received:%d, calculated:%d" % ( ord(output), _getChecksum(responseData))
+							print ("Received data has checksum error. (Received:%d, calculated:%d" % ( ord(output), _getChecksum(responseData)))
 							return 0
 				responseData += [ord(output)]
 				received_data += 1
@@ -449,33 +455,33 @@ def _sendRequest(request, response, withData):
 					responseData = []
 					error_cases += 1
 					if error_cases > 256:
-						print "Unexpected data received. Terminating."
+						print ("Unexpected data received. Terminating.")
 						return 0
 
 
 def _open():
 	ret = _sendRequest([0x0a, 0x01, 0x14, 0xe1], [0x0a, 0x01, 0x14, 0xe1], 0)
 	if ret == 1:
-		print "Successfully opened !"
+		print ("Successfully opened !")
 	else:
-		print "Failed to open"
+		print ("Failed to open")
 	return ret
 
 def _close():
 	ret = _sendRequest([0x0a, 0x01, 0x17, 0xde], [0x0a, 0x01, 0x17, 0xde], 0)
 	if ret == 1:
-		print "Successfully closed !"
+		print ("Successfully closed !")
 	else:
-		print "Failed to close"
+		print ("Failed to close")
 	return ret
 
 	
 def _queryController():
 	ret, response = _sendRequest([0x0a, 0x01, 0x16, 0xdf], [0x0a, 0x01, 0x16, 0xdf], 1)
 	if ret > 0:
-		print "Successfully queried controller : Received ", ret, " items:", ''.join([hex(i) for i in response])
+		print ("Successfully queried controller : Received ", ret, " items:", ''.join([hex(i) for i in response]))
 	else:
-		print "Failed to query controller !"
+		print ("Failed to query controller !")
 
 def _listenData(did):
 	_open();
@@ -494,9 +500,9 @@ def _listenData(did):
 						if (ord(o) == 0xfc) or (ord(o) == 0xfd) :
 							state = "length"
 							checksum = ord(o)
-							print "Tag ", hex(ord(o)), " received !"
+							print ("Tag ", hex(ord(o)), " received !")
 						else :
-							print ",", hex(ord(o))
+							print (",", hex(ord(o)))
 					elif state == "length" :
 						msg_len = ord(o)
 						checksum += ord(o)
@@ -560,7 +566,7 @@ def _listenData(did):
 							if dset_id == did :
 								processing = False
 		else :
-			print "Timeout"
+			print ("Timeout")
 			processing = False
 
 	return 1
@@ -616,7 +622,7 @@ if (not os.path.exists('/dev/paradigma')) :
 	os.makedirs('/dev/paradigma', 0x777, True)
 
 ser = serial.Serial("/dev/ttyUSB0", timeout=15.0)
-print "Serial was opened !"
+print ("Serial was opened !")
 
 for o,p in opts :
 	if o in ['-o', '--open']:
