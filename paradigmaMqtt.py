@@ -303,23 +303,23 @@ class Dataset1(object):
 	def Zirkulationstemperatur(self):
 		return (self.dataset[29]+ self.dataset[28]*256) /10.0
 
-	def Dump(self):
-		writeInFile("Time", self.DateTime().ToString(), "General/time")
-		writeInFile("Aussen", self.Aussentemp(), "Fuehler/Aussentemperatur")
-		writeInFile("AussenFilter", selfAussentempFilter(), "Fuehler/AussentemperaturGefiltert")
-		writeInFile("Warmwasser", self.Warmwassertemp(), "Warmwasser/Temperatur")
-		writeInFile("Kesselvorlauf", self.Kesselvorlauf(), "Kessel/Vorlauf")
-		writeInFile("Kesselruecklauf", self.Kesselruecklauf(), "Kessel/Ruecklauf")
-		writeInFile("RaumHK1", self.RaumtemperaturHK1(), "Heizkreis/Raumtemperatur")
-		writeInFile("RaumHK2", self.RaumtemperaturHK2(), "Heizkreis_1/Raumtemperatur")
-		writeInFile("VorlaufHK1", self.VorlauftemperaturHK1(), "Heizkreis/Vorlauftemperatur")
-		writeInFile("VorlaufHK2", self.VorlauftemperaturHK2(), "Heizkreis_1/Vorlauftemperatur")
-		writeInFile("RuecklaufHK1", self.RuecklauftemperaturHK1(), "Heizkreis/Ruecklauftemperatur")
-		writeInFile("RuecklaufHK2", self.RuecklauftemperaturHK2(), "Heizkreis_1/Ruecklauftemperatur")
-		writeInFile("PufferOben", self.PuffertemperaturOben(), "Puffer/Oben")
-		writeInFile("PufferUnter", self.PuffertemperaturUnten(), "Puffer/Unten")
-		writeInFile("Zirkulation", self.Zirkulationstemperatur(), "Kessel/Zirkulationstemperatur")
-		return 0
+def dumpDataset1(ds):
+	writeInFile("Time", ds.DateTime().ToString(), "General/time")
+	writeInFile("Aussen", ds.Aussentemp(), "Fuehler/Aussentemperatur")
+	writeInFile("AussenFilter", ds.AussentempFilter(), "Fuehler/AussentemperaturGefiltert")
+	writeInFile("Warmwasser", ds.Warmwassertemp(), "Warmwasser/Temperatur")
+	writeInFile("Kesselvorlauf", ds.Kesselvorlauf(), "Kessel/Vorlauf")
+	writeInFile("Kesselruecklauf", ds.Kesselruecklauf(), "Kessel/Ruecklauf")
+	writeInFile("RaumHK1", ds.RaumtemperaturHK1(), "Heizkreis/Raumtemperatur")
+	writeInFile("RaumHK2", ds.RaumtemperaturHK2(), "Heizkreis_1/Raumtemperatur")
+	writeInFile("VorlaufHK1", ds.VorlauftemperaturHK1(), "Heizkreis/Vorlauftemperatur")
+	writeInFile("VorlaufHK2", ds.VorlauftemperaturHK2(), "Heizkreis_1/Vorlauftemperatur")
+	writeInFile("RuecklaufHK1", ds.RuecklauftemperaturHK1(), "Heizkreis/Ruecklauftemperatur")
+	writeInFile("RuecklaufHK2", ds.RuecklauftemperaturHK2(), "Heizkreis_1/Ruecklauftemperatur")
+	writeInFile("PufferOben", ds.PuffertemperaturOben(), "Puffer/Oben")
+	writeInFile("PufferUnter", ds.PuffertemperaturUnten(), "Puffer/Unten")
+	writeInFile("Zirkulation", ds.Zirkulationstemperatur(), "Kessel/Zirkulationstemperatur")
+
 
 class Dataset2(object) :
 	def __init__(self, dataset) :
@@ -376,28 +376,28 @@ class Dataset2(object) :
 	def LeistungPk(self) :
 		return self.dataset[31]
 
-	def Dump(self) :
-		writeInFile("RaumsollHK1", self.RaumsollHK1(), "Heizkreis/Raumsoll")
-#		writeInFile("RaumsollHK2", self.RaumsollHK2(), "Heizkreis_1/Raumsoll")
-		writeInFile("VorlaufsollHK1", self.VorlaufsollHK1(), "Heizkreis/Vorlaufsoll")
-#		writeInFile("VorlaufsollHK2", self.VorlaufsollHK2(), "Heizkreis_1/Vorlaufsoll")
-		writeInFile("Warmassersoll",self.Warmwassersoll(), "Warmwasser/Soll")
-		writeInFile("Puffersoll", self.Puffersoll(), "Puffer/Soll")
-		writeInFile2("BetriebsartHK1", self.BetriebsartHK1(), "Heizkreis/Betriebsart", modes[str(self.BetriebsartHK1())])
-		writeInFile("NiveauHK1", self.NiveauHK1(), "Heizkreis/Niveau")
-		writeInFile("LeistungPHK1", self.LeistungPHK1(), "Heizkreis/Leistung")
-#		writeInFile("LeistungPHK2", self.LeistungPHK2(), "Heizkreis_1/Leistung")
-		writeInFile   ("Betriebsstunden", self.Betriebsstunden(), "Kessel/Betriebsstunden")
-#		writeInFileInt("Betriebsstunden", self.Betriebsstunden(), "Kessel/Betriebsstunden")
-		writeInFile   ("AnzahlKesselstarts", self.AnzahlKesselstarts(), "Kessel/Starts")
-#		writeInFileInt("AnzahlKesselstarts", self.AnzahlKesselstarts(), "Kessel/Starts")
-		writeInFile2("Stoercode KesselText", self.StoercodeKessel(), "Kessel/StoercodeText", 
-			str(self.StoercodeKessel())
-			+ ": "
-			+ errorcodes[str(self.StoercodeKessel())] )
-		writeInFile("Stoercode Kessel", self.StoercodeKessel(), "Kessel/Stoercode")
-		writeInFile("Stoercode Fuehler", self.StoercodeFuehler(), "Fuehler/Stoercode")
-		return 1
+def dumpDataset2(ds) :
+	writeInFile("RaumsollHK1", ds.RaumsollHK1(), "Heizkreis/Raumsoll")
+#	writeInFile("RaumsollHK2", ds.RaumsollHK2(), "Heizkreis_1/Raumsoll")
+	writeInFile("VorlaufsollHK1", ds.VorlaufsollHK1(), "Heizkreis/Vorlaufsoll")
+#	writeInFile("VorlaufsollHK2", ds.VorlaufsollHK2(), "Heizkreis_1/Vorlaufsoll")
+	writeInFile("Warmassersoll",ds.Warmwassersoll(), "Warmwasser/Soll")
+	writeInFile("Puffersoll", ds.Puffersoll(), "Puffer/Soll")
+	writeInFile2("BetriebsartHK1", ds.BetriebsartHK1(), "Heizkreis/Betriebsart", modes[str(self.BetriebsartHK1())])
+	writeInFile("NiveauHK1", ds.NiveauHK1(), "Heizkreis/Niveau")
+	writeInFile("LeistungPHK1", ds.LeistungPHK1(), "Heizkreis/Leistung")
+#	writeInFile("LeistungPHK2", ds.LeistungPHK2(), "Heizkreis_1/Leistung")
+	writeInFile   ("Betriebsstunden", ds.Betriebsstunden(), "Kessel/Betriebsstunden")
+#	writeInFileInt("Betriebsstunden", ds.Betriebsstunden(), "Kessel/Betriebsstunden")
+	writeInFile   ("AnzahlKesselstarts", ds.AnzahlKesselstarts(), "Kessel/Starts")
+#	writeInFileInt("AnzahlKesselstarts", ds.AnzahlKesselstarts(), "Kessel/Starts")
+	writeInFile2("Stoercode KesselText", dsf.StoercodeKessel(), "Kessel/StoercodeText", 
+		str(ds.StoercodeKessel())
+		+ ": "
+		+ errorcodes[str(ds.StoercodeKessel())] )
+	writeInFile("Stoercode Kessel", ds.StoercodeKessel(), "Kessel/Stoercode")
+	writeInFile("Stoercode Fuehler", ds.StoercodeFuehler(), "Fuehler/Stoercode")
+	return 1
 
 def _getChecksum(data):
 	chk = 0

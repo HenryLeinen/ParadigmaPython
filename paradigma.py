@@ -184,16 +184,18 @@ class paradigma:
 	#		{'topic':"homie/Paradigma/Heizkreis_1/Leistung/$name",			'payload':"Leistung Heizkreis 2", 'retain':"true"}
 
 		]
+class Helper(object):
+	def __init__(self):
+		# do nothing
 
+	def UnsignedToSignedInt(d) :
+		if d > 32768:
+			return d - 65536
+		else:
+			return d
 
-def UnsignedToSignedInt(d) :
-	if d > 32768:
-		return d - 65536
-	else:
-		return d
-
-def BcdToDec(c) :
-	return (c >> 4)*10 + (c&0x0f)
+	def BcdToDec(c) :
+		return (c >> 4)*10 + (c&0x0f)
 
 def writeInFile(fn, d, s) :
 	global mqtt_connected
@@ -259,7 +261,7 @@ class Dataset1(object):
 
 	def Kesselvorlauf(self):
 		return (self.dataset[9] + self.dataset[8]*256) / 10.0
-	
+
 	def Kesselruecklauf(self):
 		return (self.dataset[11]+ self.dataset[10]*256) /10.0
 
@@ -290,23 +292,6 @@ class Dataset1(object):
 	def Zirkulationstemperatur(self):
 		return (self.dataset[29]+ self.dataset[28]*256) /10.0
 
-	def Dump(self):
-		writeInFile("Time", self.DateTime().ToString(), "General/time")
-		writeInFile("Aussen", self.Aussentemp(), "Fuehler/Aussentemperatur")
-		writeInFile("AussenFilter", selfAussentempFilter(), "Fuehler/AussentemperaturGefiltert")
-		writeInFile("Warmwasser", self.Warmwassertemp(), "Warmwasser/Temperatur")
-		writeInFile("Kesselvorlauf", self.Kesselvorlauf(), "Kessel/Vorlauf")
-		writeInFile("Kesselruecklauf", self.Kesselruecklauf(), "Kessel/Ruecklauf")
-		writeInFile("RaumHK1", self.RaumtemperaturHK1(), "Heizkreis/Raumtemperatur")
-		writeInFile("RaumHK2", self.RaumtemperaturHK2(), "Heizkreis_1/Raumtemperatur")
-		writeInFile("VorlaufHK1", self.VorlauftemperaturHK1(), "Heizkreis/Vorlauftemperatur")
-		writeInFile("VorlaufHK2", self.VorlauftemperaturHK2(), "Heizkreis_1/Vorlauftemperatur")
-		writeInFile("RuecklaufHK1", self.RuecklauftemperaturHK1(), "Heizkreis/Ruecklauftemperatur")
-		writeInFile("RuecklaufHK2", self.RuecklauftemperaturHK2(), "Heizkreis_1/Ruecklauftemperatur")
-		writeInFile("PufferOben", self.PuffertemperaturOben(), "Puffer/Oben")
-		writeInFile("PufferUnter", self.PuffertemperaturUnten(), "Puffer/Unten")
-		writeInFile("Zirkulation", self.Zirkulationstemperatur(), "Kessel/Zirkulationstemperatur")
-		return 0
 
 class Dataset2(object) :
 	def __init__(self, dataset) :
@@ -363,28 +348,6 @@ class Dataset2(object) :
 	def LeistungPk(self) :
 		return self.dataset[31]
 
-	def Dump(self) :
-		writeInFile("RaumsollHK1", self.RaumsollHK1(), "Heizkreis/Raumsoll")
-#		writeInFile("RaumsollHK2", self.RaumsollHK2(), "Heizkreis_1/Raumsoll")
-		writeInFile("VorlaufsollHK1", self.VorlaufsollHK1(), "Heizkreis/Vorlaufsoll")
-#		writeInFile("VorlaufsollHK2", self.VorlaufsollHK2(), "Heizkreis_1/Vorlaufsoll")
-		writeInFile("Warmassersoll",self.Warmwassersoll(), "Warmwasser/Soll")
-		writeInFile("Puffersoll", self.Puffersoll(), "Puffer/Soll")
-		writeInFile2("BetriebsartHK1", self.BetriebsartHK1(), "Heizkreis/Betriebsart", modes[str(self.BetriebsartHK1())])
-		writeInFile("NiveauHK1", self.NiveauHK1(), "Heizkreis/Niveau")
-		writeInFile("LeistungPHK1", self.LeistungPHK1(), "Heizkreis/Leistung")
-#		writeInFile("LeistungPHK2", self.LeistungPHK2(), "Heizkreis_1/Leistung")
-		writeInFile   ("Betriebsstunden", self.Betriebsstunden(), "Kessel/Betriebsstunden")
-#		writeInFileInt("Betriebsstunden", self.Betriebsstunden(), "Kessel/Betriebsstunden")
-		writeInFile   ("AnzahlKesselstarts", self.AnzahlKesselstarts(), "Kessel/Starts")
-#		writeInFileInt("AnzahlKesselstarts", self.AnzahlKesselstarts(), "Kessel/Starts")
-		writeInFile2("Stoercode KesselText", self.StoercodeKessel(), "Kessel/StoercodeText", 
-			str(self.StoercodeKessel())
-			+ ": "
-			+ errorcodes[str(self.StoercodeKessel())] )
-		writeInFile("Stoercode Kessel", self.StoercodeKessel(), "Kessel/Stoercode")
-		writeInFile("Stoercode Fuehler", self.StoercodeFuehler(), "Fuehler/Stoercode")
-		return 1
 
 def _getChecksum(data):
 	chk = 0
