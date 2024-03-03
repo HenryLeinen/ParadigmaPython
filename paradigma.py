@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+# This is the library which contains all paradigma specific implementations and datatypes
 
 import sys
 import serial
@@ -12,7 +13,87 @@ import paho.mqtt.publish as publish
 import struct
 
 
-class paradigma:
+class paradigma(object):
+
+	# Class DateTime implements the Paradigma specific representation of a DateTime object
+	# Paradigma stores the date in a BCD format
+	class DateTime(object):
+		def __init__(self, dt):
+			self.Day = BcdToDec(dt[0])
+			self.Month = BcdToDec(dt[1])
+			self.Hour = BcdToDec(dt[3])
+			self.Minute = BcdToDec(dt[2])
+		def ToString(self):
+			return '{:02d}'.format(self.Day) + "." + '{:02d}'.format(self.Month) + " " + '{:02d}'.format(self.Hour) + ":" + '{:02d}'.format(self.Minute)
+
+	# Class Date represents a serialized date object from paradigma datasets.
+	# Paradigma serializes date objects as 4-byte codes, where the first 2 bytes (when interpreted as a 16-bit number)
+	# give the number of days since January 1st 2000. The next two bytes represent the number of seconds since midnight.
+	class Date(object):
+		def __init__(self, dt):
+			self.DaysSince2000 = dt[1] + dt[0]*256
+			self.SecondsSinceMidnight = dt[3] + dt[2]*256
+			self.Day = 0;
+			self.Month = 0;
+			self.Year = 0;
+			self.Hour = 0;
+			self.Minute = 0;
+			self.Second = 0;
+		def ToString(self):
+			return '{:02d}'.format(self.Day) + "." + '{:02d}'.format(self.Month) + "." + '{:04}'.format(self.Year) + " " + '{02}'.format(self.Hour) + ":" + '{:02}'.format(self.Minute) + ":" + '{:02d}'.format(self.Second)   
+
+	class Dataset1(object):
+		def __init__(self, dataset):
+			self.dataset = dataset
+			self.newAussentemp = 0
+	
+		def DateTime(self):
+			return DateTime(self.dataset[0:4])
+	
+		def Aussentemp(self):
+			return UnsignedToSignedInt(self.dataset[5] + self.dataset[4]*256) / 10.0
+	
+		def AussentempFilter(self):
+			self.newAussentemp = (3*self.newAussentemp + self.Aussentemp())/4
+			return self.newAussentemp
+	
+		def Warmwassertemp(self):
+			return (self.dataset[7] + self.dataset[6]*256) / 10.0
+	
+		def Kesselvorlauf(self):
+			return (self.dataset[9] + self.dataset[8]*256) / 10.0
+	
+		def Kesselruecklauf(self):
+			return (self.dataset[11]+ self.dataset[10]*256) /10.0
+	
+		def RaumtemperaturHK1(self):
+			return (self.dataset[13]+ self.dataset[12]*256) /10.0
+	
+		def RaumtemperaturHK2(self):
+			return (self.dataset[15]+ self.dataset[14]*256) /10.0
+	
+		def VorlauftemperaturHK1(self):
+			return (self.dataset[17]+ self.dataset[16]*256) /10.0
+	
+		def VorlauftemperaturHK2(self):
+			return (self.dataset[19]+ self.dataset[18]*256) /10.0
+	
+		def RuecklauftemperaturHK1(self):
+			return (self.dataset[21]+ self.dataset[20]*256) /10.0
+	
+		def RuecklauftemperaturHK2(self):
+			return (self.dataset[23]+ self.dataset[22]*256) /10.0
+	
+		def PuffertemperaturOben(self):
+			return (self.dataset[25]+ self.dataset[24]*256) /10.0
+	
+		def PuffertemperaturUnten(self):
+			return (self.dataset[27]+ self.dataset[26]*256) /10.0
+	
+		def Zirkulationstemperatur(self):
+			return (self.dataset[29]+ self.dataset[28]*256) /10.0
+
+	
 	# Map for Betriebsmodes
 	modes = {	'0': "Programm 1",
 			'1': "Programm 2",
@@ -232,65 +313,6 @@ def writeInFile2(fn, d, s, v):
 		print ("mqtt not connected")
 
 
-class DateTime(object):
-	def __init__(self, dt):
-		self.Day = BcdToDec(dt[0])
-		self.Month = BcdToDec(dt[1])
-		self.Hour = BcdToDec(dt[3])
-		self.Minute = BcdToDec(dt[2])
-	def ToString(self):
-		return '{:02d}'.format(self.Day) + "." + '{:02d}'.format(self.Month) + " " + '{:02d}'.format(self.Hour) + ":" + '{:02d}'.format(self.Minute)
-
-class Dataset1(object):
-	def __init__(self, dataset):
-		self.dataset = dataset
-		self.newAussentemp = 0
-
-	def DateTime(self):
-		return DateTime(self.dataset[0:4])
-
-	def Aussentemp(self):
-		return UnsignedToSignedInt(self.dataset[5] + self.dataset[4]*256) / 10.0
-
-	def AussentempFilter(self):
-		self.newAussentemp = (3*self.newAussentemp + self.Aussentemp())/4
-		return self.newAussentemp
-
-	def Warmwassertemp(self):
-		return (self.dataset[7] + self.dataset[6]*256) / 10.0
-
-	def Kesselvorlauf(self):
-		return (self.dataset[9] + self.dataset[8]*256) / 10.0
-
-	def Kesselruecklauf(self):
-		return (self.dataset[11]+ self.dataset[10]*256) /10.0
-
-	def RaumtemperaturHK1(self):
-		return (self.dataset[13]+ self.dataset[12]*256) /10.0
-
-	def RaumtemperaturHK2(self):
-		return (self.dataset[15]+ self.dataset[14]*256) /10.0
-
-	def VorlauftemperaturHK1(self):
-		return (self.dataset[17]+ self.dataset[16]*256) /10.0
-
-	def VorlauftemperaturHK2(self):
-		return (self.dataset[19]+ self.dataset[18]*256) /10.0
-
-	def RuecklauftemperaturHK1(self):
-		return (self.dataset[21]+ self.dataset[20]*256) /10.0
-
-	def RuecklauftemperaturHK2(self):
-		return (self.dataset[23]+ self.dataset[22]*256) /10.0
-
-	def PuffertemperaturOben(self):
-		return (self.dataset[25]+ self.dataset[24]*256) /10.0
-
-	def PuffertemperaturUnten(self):
-		return (self.dataset[27]+ self.dataset[26]*256) /10.0
-
-	def Zirkulationstemperatur(self):
-		return (self.dataset[29]+ self.dataset[28]*256) /10.0
 
 
 class Dataset2(object) :
