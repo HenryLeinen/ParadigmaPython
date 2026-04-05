@@ -306,7 +306,7 @@ class Dataset1(object):
 	def Dump(self):
 		writeInFile("Time", self.DateTime().ToString(), "General/time")
 		writeInFile("Aussen", self.Aussentemp(), "Fuehler/Aussentemperatur")
-		writeInFile("AussenFilter", selfAussentempFilter(), "Fuehler/AussentemperaturGefiltert")
+		writeInFile("AussenFilter", self.AussentempFilter(), "Fuehler/AussentemperaturGefiltert")
 		writeInFile("Warmwasser", self.Warmwassertemp(), "Warmwasser/Temperatur")
 		writeInFile("Kesselvorlauf", self.Kesselvorlauf(), "Kessel/Vorlauf")
 		writeInFile("Kesselruecklauf", self.Kesselruecklauf(), "Kessel/Ruecklauf")
@@ -413,12 +413,12 @@ def _sendRequest(request, response, withData):
 	received_data = 0
 	responseData = []
 	print ("Sending request")
-	ser.write(''.join([chr(i) for i in request]))
+	ser.write(bytes(request))
 	while True:
 		output = ser.read(1)
 		if len(output) == 0:
 			print ("Sending request")
-			ser.write(''.join([chr(i) for i in request]))
+			ser.write(bytes(request))
 			received_char = 0
 			received_data = 0
 			responseData = []
@@ -497,46 +497,46 @@ def _listenData(did):
 						msg_len = 0
 						dataset = []
 						dset_id = 0
-						if (ord(o) == 0xfc) or (ord(o) == 0xfd) :
+						if o == 0xfc or o == 0xfd:
 							state = "length"
-							checksum = ord(o)
-							print ("Tag ", hex(ord(o)), " received !")
+							checksum = o
+							print ("Tag ", o, "received !")
 						else :
-							print (",", hex(ord(o)))
+							print (",", hex(o))
 					elif state == "length" :
-						msg_len = ord(o)
-						checksum += ord(o)
-						print ("Length (" + hex(ord(o)) + ") received !")
+						msg_len = o
+						checksum += o
+						print ("Length (" + hex(o) + ") received !")
 						state = "message_id"
 					elif state == "message_id" :
-						if (ord(o) != 0x0c) :
-							print ("Incorrect message type " + hex(ord(o)))
+						if (o != 0x0c) :
+							print ("Incorrect message type " + hex(o))
 							state = "waiting"
 						else :
 							print ("Correct message type received ")
-							checksum += ord(o)
+							checksum += o
 							state = "dataset_id"
 					elif state == "dataset_id" :
-						dset_id = ord(o)
+						dset_id = o
 						if ((dset_id > 0) and (dset_id < 4)):
 							recvd_data = 0
 							dataset = []
-							checksum += ord(o)
+							checksum += o
 							print ("Receiving dataset id " + str(dset_id) + " received !")
 							state = "receive_data"
 						else:
-							print ("Invalid dataset id " + hex(ord(o)))
+							print ("Invalid dataset id " + hex(o))
 							state = "waiting"
 					elif state == "receive_data" :
-						dataset = dataset + [ord(o)]
-						checksum += ord(o)
+						dataset = dataset + [o]
+						checksum += o
 						recvd_data = recvd_data + 1
 						if (len(dataset)+2 == msg_len) :
 							state = "checksum"
 					elif state == "checksum" :
-						checksum += ord(o)
+						checksum += o
 						if ((checksum & 0xff) != 0) :
-							print ('Checksum error (remainder is ' + hex(checksum&255)+ '), Received checksum is ', hex(ord(o)), ' !')
+							print ('Checksum error (remainder is ' + hex(checksum&255)+ '), Received checksum is ', hex(o), ' !')
 							state = "waiting"
 							processing = False
 						else :
@@ -589,7 +589,7 @@ def on_connect(client, userdata, flags, rc):
 
 def on_disconnect(client, userdata, rc):
 	global mqtt_connected
-	if rx != 0:
+	if rc != 0:
 		print ('Unexpected disconnection!')
 		logging.debug("Unexpected mqtt disconnect")
 	else :
