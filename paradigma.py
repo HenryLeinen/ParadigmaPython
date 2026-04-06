@@ -11,7 +11,7 @@ import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
 import struct
 
-logging.basicConfig(filename="paradigma.log", level=logging.INFO)
+logging.basicConfig(filename="/home/pi/paradigma.log", level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Map for Betriebsmodes
 modes = {	'0': "Programm 1",
@@ -63,8 +63,8 @@ dir_name = "/dev/paradigma"
 mqtt_connected = False
 
 # Make sure the path exists. Create it if necessary
-if not os.path.exists(dir_name):
-	os.makedirs(dir_name)
+#if not os.path.exists(dir_name):
+#	os.makedirs(dir_name)
 
 mqtt_init = [	{'topic':"homie/Paradigma/$name", 	'payload':"Paradigma", 		'retain':"true"},
 		{'topic':"homie/Paradigma/$homie", 	'payload':"4.0", 		'retain':"true"},
@@ -210,9 +210,9 @@ def BcdToDec(c) :
 
 def writeInFile(fn, d, s) :
 	global mqtt_connected
-	f = open ("/dev/paradigma/"+fn, "w")
-	f.write(str(d))
-	f.close()
+#	f = open ("/dev/paradigma/"+fn, "w")
+#	f.write(str(d))
+#	f.close()
 	if (mqtt_connected):
 		client.publish("fhem/Heizung/"+fn, d)
 		client.publish("homie/Paradigma/"+s, d)
@@ -221,9 +221,9 @@ def writeInFile(fn, d, s) :
 
 def writeInFileInt(fn, d, s):
 	global mqtt_connected
-	f = open ("/dev/paradigma/"+fn, "w")
-	f.write(str(d))
-	f.close()
+#	f = open ("/dev/paradigma/"+fn, "w")
+#	f.write(str(d))
+#	f.close()
 	if (mqtt_connected):
 		client.publish("fhem/Heizung/"+fn, d)
 		client.publish("homie/Paradigma/"+s, struct.pack("i",d))
@@ -233,9 +233,9 @@ def writeInFileInt(fn, d, s):
 
 def writeInFile2(fn, d, s, v):
 	global mqtt_connected
-	f = open ("/dev/paradigma/"+fn, "w")
-	f.write(str(d))
-	f.close()
+#	f = open ("/dev/paradigma/"+fn, "w")
+#	f.write(str(d))
+#	f.close()
 	if (mqtt_connected):
 		client.publish("fhem/Heizung/"+fn, d)
 		client.publish("homie/Paradigma/"+s, v)
@@ -413,6 +413,7 @@ def _sendRequest(request, response, withData):
 	received_data = 0
 	responseData = []
 	print ("Sending request")
+	logging.info("Sending request")
 	ser.write(bytes(request))
 	while True:
 		output = ser.read(1)
@@ -428,6 +429,7 @@ def _sendRequest(request, response, withData):
 					received_char += 1
 					if received_char == len(response):
 						print ("Received response")
+						logging.info("Received response")
 						if withData == 0:
 							print ("done")
 							return 1
@@ -447,6 +449,7 @@ def _sendRequest(request, response, withData):
 							return responseData[1], responseData[2:]
 						else:
 							print ("Received data has checksum error. (Received:%d, calculated:%d" % ( ord(output), _getChecksum(responseData)))
+							logging.error("Received data has checksum error. (Received:%d, calculated:%d" % (ord(output), _getChecksum(responseData)))
 							return 0
 				responseData += [ord(output)]
 				received_data += 1
@@ -456,6 +459,7 @@ def _sendRequest(request, response, withData):
 					error_cases += 1
 					if error_cases > 256:
 						print ("Unexpected data received. Terminating.")
+						logging.info("Unexpected data recevied.")
 						return 0
 
 
@@ -463,16 +467,20 @@ def _open():
 	ret = _sendRequest([0x0a, 0x01, 0x14, 0xe1], [0x0a, 0x01, 0x14, 0xe1], 0)
 	if ret == 1:
 		print ("Successfully opened !")
+		logging.info("Successfully opened Paradigma COM")
 	else:
 		print ("Failed to open")
+		logging.error("Failed to open communication with Paradigma using serial COM")
 	return ret
 
 def _close():
 	ret = _sendRequest([0x0a, 0x01, 0x17, 0xde], [0x0a, 0x01, 0x17, 0xde], 0)
 	if ret == 1:
 		print ("Successfully closed !")
+		logging.info("Successfully closed Paradigma COM")
 	else:
 		print ("Failed to close")
+		logging.error("Failed to close communication with Paradigma using serial COM")
 	return ret
 
 	
@@ -480,8 +488,10 @@ def _queryController():
 	ret, response = _sendRequest([0x0a, 0x01, 0x16, 0xdf], [0x0a, 0x01, 0x16, 0xdf], 1)
 	if ret > 0:
 		print ("Successfully queried controller : Received ", ret, " items:", ''.join([hex(i) for i in response]))
+		logging.info("Successfully queried controller: Receoved", ret, " items.")
 	else:
 		print ("Failed to query controller !")
+		logging.critical("Failed to query controller !")
 
 def _listenData(did):
 	_open();
@@ -591,9 +601,9 @@ def on_disconnect(client, userdata, rc):
 	global mqtt_connected
 	if rc != 0:
 		print ('Unexpected disconnection!')
-		logging.debug("Unexpected mqtt disconnect")
+		logging.error("Unexpected mqtt disconnect")
 	else :
-		logging.debug("mqtt disconnected")
+		logging.info("mqtt disconnected")
 		print ('Disconnected !') 
 	mqtt_connected = False
 
@@ -604,6 +614,8 @@ def on_message(client, userdata, message):
 
 
 # Create the MQTT client
+logging.info("---------------------------------------------------------------")
+logging.info("Creating MQTT client")
 client = mqtt.Client(client_id=mqtt_client_id, protocol=mqtt.MQTTv31)
 client.on_connect = on_connect
 client.on_disconnect = on_disconnect
@@ -618,39 +630,48 @@ client.loop_start()
 
 opts, extraparams = getopt.getopt(sys.argv[1:], "coql", ["close", "open", "query", "listen"])
 
-if (not os.path.exists('/dev/paradigma')) :
-	os.makedirs('/dev/paradigma', 0x777, True)
+#if (not os.path.exists('/dev/paradigma')) :
+#	os.makedirs('/dev/paradigma', 0x777, True)
 
 ser = serial.Serial("/dev/ttyUSB0", timeout=15.0)
 print ("Serial was opened !")
+logging.info("Opening serial COM")
 
 for o,p in opts :
 	if o in ['-o', '--open']:
 		print ("Opening")
+		loggin.debug("Opening COM")
 		_open()
 		exit(0)
 	if o in ['-c', '--close']:
 		print ("Closing")
+		logging.debug("Closing COM")
 		_close()
 		exit(0)
 	if o in ['-q', '--query']:
 		print ("Querying")
+		logging.debug("Querying")
 		_queryController()
 		exit(0)
 	if o in ['-l', '--listen']:
 		print ("Listenening for data packets")
+		logging.debug("Listening for data packets...")
 		_listenData(1)
 		_listenData(2)
 #		exit(0)
 
+logging.info("Disconnecting form MQTT")
 client.disconnect()
 
+logging.info("Closing COM interface")
 ser.close()
 
 client.loop_stop()
 
-time.sleep(4)
+time.sleep(1)
 
+logging.info("Exiting")
+logging.info("---------------------------------------------------------------")
 sys.exit(0)
 
 
