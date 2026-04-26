@@ -11,7 +11,7 @@ import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
 import struct
 
-logging.basicConfig(filename="/home/pi/paradigma.log", level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(filename="/home/pi/paradigma.log", level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Map for Betriebsmodes
 modes = {	'0': "Programm 1",
