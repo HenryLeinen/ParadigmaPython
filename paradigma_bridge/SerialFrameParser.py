@@ -1,6 +1,5 @@
 
 import logging
-import serial
 from dataclasses import dataclass
 
 

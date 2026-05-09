@@ -18,14 +18,6 @@ log = logging.getLogger(__name__)
 
 PERIODIC_TASK_TIME	= 300 # seconds
 
-''' Serial commands sent to paradigma '''
-CMD_READ_MEMORY 	= b'\x1c\x0c\x03'
-CMD_START_MONITORING	= b'\x14'
-CMD_STOP_MONITORING	= b'\x15'
-CMD_START_READ_VERSION	= b'\x16'
-CMD_STOP_READ_VERSION	= b'\x17'
-CMD_WRITE_MEMORY	= b'\x1d\x0c\x11\x53\x45\x54'
-CMD_WRITE_CLOCK		= b'\x1d\x0c\x09\x55\x48\x52'
 ''' 0x0A: Response codes from Paradigma hinting at the payload  meaning'''
 RET_MESSAGE_RESPONSE_START_MONITORING = 0x14
 RET_MESSAGE_RESPONSE_STOP_MONITORING = 0x15
