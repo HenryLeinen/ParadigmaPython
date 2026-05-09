@@ -1,3 +1,6 @@
 *.log
 *.old
-
+*__pycache__*
+*.pyc
+*,swp
+*.save
