@@ -7,8 +7,16 @@ import paho.mqtt.client as mqtt
 
 from paradigma_bridge.Controller import  Controller
 
-log = logging.getLogger(__name__)
 
+log 		= logging.getLogger(__name__)
+handler 	= logging.FileHandler("/var/log/paradigma.log")
+formatter	= logging.Formatter(
+			"%(asctime)s %(levelname)s %(threadName)s %(message)s"
+			)
+
+handler.setFormatter(formatter)
+log.addHandler(handler)
+log.setLevel(logging.DEBUG)
 
 if __name__ == "__main__":
 

@@ -333,7 +333,7 @@ class Controller:
 		elif isinstance(event, MqttCommand):
 			if event.topic == "paradigma/heating/setmode":
 				''' check if heating mode exists and convert it to the associated number '''
-				print (f"handle_event Payload {event.payload}")
+				log.info (f"Handle MQTT event paradigma/heating/setmode Payload {event.payload}")
 				val = self.msg_parser.LookupMode(str(event.payload))
 				if val == None:
 					actions.append(LogMessage(f"Invalid Heating Mode {event.payload}"))
@@ -342,18 +342,22 @@ class Controller:
 					actions.append(SendSerial(request=CMD_WRITE_MEMORY, payload=mypayload))
 					actions.append(LogMessage(f"Sending cmd=0x0A, payload={mypayload}"))
 			elif event.topic == "paradigma/heating/gettemperatures":
+				log.info (f"Handle MQTT event paradigma/heating/gettemperatures Payload {event.payload}")
 				mypayload = b'\x00\x05\x06'
 				actions.append(LogMessage(f"Sending cmd=0x0A, payload={mypayload}"))
 				actions.append(SendSerial(request=CMD_READ_MEMORY, payload=mypayload))
 			elif event.topic == "paradigma/heating/settemperatures":
+				log.info (f"Handle MQTT event paradigma/heating/settemperatures Payload {event.payload}")
 #				mypayload = CMD_WRITE_MEMORY + b'\x00\x05\x06' + 
 				pass
 			elif event.topic == "paradigma/heating/getferien":
+				log.info (f"Handle MQTT event paradigma/heating/getferien Payload {event.payload}")
 				mypayload = b'\x00\x0b\x04'
 				actions.append(LogMessage(f"Sending cmd=0x0A, payload={mypayload}"))
 				actions.append(SendSerial(request=CMD_READ_MEMORY, payload=mypayload))
 			elif event.topic == "paradigma/heating/update_interval":
 				# Set a new frequency for the task
+				log.info (f"Handle MQTT event paradigma/heating/update_interval Payload {event.payload}")
 				update_interval = int(event.payload)
 				if update_interval > 15 and update_interval < 300:
 					actions.append(LogMessage(f"PERIODIC_TASK_TIME was changed from {self.PERIODIC_TASK_TIME}sec to {update_interval}sec"))
@@ -363,6 +367,7 @@ class Controller:
 
 			elif event.topic == "paradigma/heating/temperatures":
 				# Set new temperatures in HEIZKREIS 1
+				log.info (f"Handle MQTT event paradigma/heating/temperatures Payload {event.payload}")
 				required = [ "heizen", "komfort", "absenken"]
 				heizen = 18.0
 				komfort = 22.0
@@ -380,6 +385,7 @@ class Controller:
 					log.error(f"Failed to decode the payload of paradigma/heating/temperatures : {event.payload}")
 				pass
 			elif event.topic == "paradigma/heating/readmemory":
+				log.info (f"Handle MQTT event paradigma/heating/readmemory Payload {event.payload}")
 				startaddr = -1
 				length = -1
 				frequency = -1
@@ -419,10 +425,11 @@ class Controller:
 						actions.append(SendSerial(request=CMD_READ_MEMORY, payload=mypayload))
 
 				except json.JSONDecodeError as exc:
-					actions.append(LogMessage(f"Failed to decode the payload of paradigma/heating/readmemory : {event.payload} with {exc}"))
+					actions.append(LogMessage(f"Failed to decode the payload of {event.topic} : {event.payload} with {exc}"))
 					log.error(f"Failed to decode the payload of paradigma/heating/readmemory : {event.payload} with {exc}")
 
 			else:
+				log.debug (f"Handle unknown MQTT event  Payload {event.payload}")
 				actions.append(LogMessage(f"Unknown MQTT topic: {event.topic}"))
 
 

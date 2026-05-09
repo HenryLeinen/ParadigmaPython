@@ -20,17 +20,74 @@ sudo crontab -e
 Paradigma bridge is the new version which supports the full memory map of the paradigma as well as the MQTT interface to read and modify variables.
 The module can be executed using the command line:
 
-ptyhon3 -m paradigma_bridge.main.py
+ptyhon3 -m paradigma_bridge.main
 
 
 # Message of Paradigma
-Deine synchrone Funktion ist im Kern ein blockierender Rahmen-Parser für ein Byteprotokoll mit dieser Struktur:
-CMD∣LEN∣PAYLOAD 
-0…LEN−1
-​	
- ∣CHKSUM
-wobei ein gültiger Rahmen mit einem der Startbytes
-{0x0A,0xFC,0xFD}
-beginnt und die Summenbedingung gilt:
-(CMD+LEN+∑PAYLOAD+CHKSUM)mod256=0
+## Nachrichtenformat (Message Frame)
 
+Die Kommunikation mit der Paradigma-Heizung erfolgt über telegrammartige Nachrichtenframes mit fest definiertem Aufbau.  
+Jedes Telegramm besteht aus einem Kommandobyte, einem Längenbyte, den Payload-Daten sowie einer abschließenden Checksumme.
+
+### Aufbau des Telegramms
+
+| Byteposition | Feld | Beschreibung |
+|---|---|---|
+| 0 | Kommando | Befehlsbyte (`0x0A`, `0xFC` oder `0xFD`) |
+| 1 | Länge | Anzahl der Payload-Bytes |
+| 2..n | Payload | Nutzdaten |
+| n+1 | Checksumme | 8-Bit-Prüfsumme |
+
+### Frame-Struktur
+
+```text
+┌────────────┬──────────┬──────────────────────┬────────────┐
+│ Kommando   │ Länge    │ Payload              │ Checksumme │
+│ 1 Byte     │ 1 Byte   │ n Bytes              │ 1 Byte     │
+├────────────┼──────────┼──────────────────────┼────────────┤
+│ 0x0A       │ 0x03     │ 0x12 0x34 0x56      │ 0xA7       │
+└────────────┴──────────┴──────────────────────┴────────────┘
+```
+
+### Bedeutung der Kommandobytes
+
+| Kommando | Bedeutung |
+|---|---|
+| `0x0A` | Standardkommando |
+| `0xFC` | Erweiterte Kommunikation |
+| `0xFD` | Erweiterte Kommunikation / Broadcast |
+
+### Beispieltelegramm
+
+```text
+0A 03 12 34 56 A7
+```
+
+Interpretation:
+
+| Feld | Wert |
+|---|---|
+| Kommando | `0x0A` |
+| Payload-Länge | `3` |
+| Payload | `12 34 56` |
+| Checksumme | `0xA7` |
+
+### Berechnung der Checksumme
+
+Die Checksumme wird als 8-Bit-Zweierkomplement über alle vorherigen Bytes berechnet:
+
+```python
+checksum = (~(command + length + sum(payload)) + 1) & 0xFF
+```
+
+Mathematisch entspricht dies:
+
+```text
+Checksum = (-(Command + Length + ΣPayload)) mod 256
+```
+
+Damit gilt stets:
+
+```text
+(Command + Length + Payload + Checksum) mod 256 = 0
+```
