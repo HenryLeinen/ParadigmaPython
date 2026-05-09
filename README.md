@@ -35,8 +35,8 @@ Jedes Telegramm besteht aus einem Kommandobyte, einem Längenbyte, den Payload-D
 |---|---|---|
 | 0 | Kommando | Befehlsbyte (`0x0A`, `0xFC` oder `0xFD`) |
 | 1 | Länge | Anzahl der Payload-Bytes |
-| 2..n | Payload | Nutzdaten |
-| n+1 | Checksumme | 8-Bit-Prüfsumme |
+| 2..n+1 | Payload | Nutzdaten |
+| n+2 | Checksumme | 8-Bit-Prüfsumme |
 
 ### Frame-Struktur
 
@@ -45,7 +45,7 @@ Jedes Telegramm besteht aus einem Kommandobyte, einem Längenbyte, den Payload-D
 │ Kommando   │ Länge    │ Payload              │ Checksumme │
 │ 1 Byte     │ 1 Byte   │ n Bytes              │ 1 Byte     │
 ├────────────┼──────────┼──────────────────────┼────────────┤
-│ 0x0A       │ 0x03     │ 0x12 0x34 0x56      │ 0xA7       │
+│ 0x0A       │ 0x03     │ 0x12 0x34 0x56       │ 0xA7       │
 └────────────┴──────────┴──────────────────────┴────────────┘
 ```
 
@@ -54,8 +54,8 @@ Jedes Telegramm besteht aus einem Kommandobyte, einem Längenbyte, den Payload-D
 | Kommando | Bedeutung |
 |---|---|
 | `0x0A` | Standardkommando |
-| `0xFC` | Erweiterte Kommunikation |
-| `0xFD` | Erweiterte Kommunikation / Broadcast |
+| `0xFC` | Dataset broadcast |
+| `0xFD` | Command Response |
 
 ### Beispieltelegramm
 
