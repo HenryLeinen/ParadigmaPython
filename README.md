@@ -7,7 +7,7 @@ Perform the following to install required modules :
 sudo apt-get install mosquitto mosquitto-clients
 pip install paho-mqtt
 
-# How to install ?
+# How to install the old version of paradigma.py?
 cp ./paradigma.py /usr/bin/paradigma.py
 sudo crontab -e
 
@@ -15,6 +15,12 @@ sudo crontab -e
 5 * * * * python /usr/bin/paradigma.py -l
 
 
+
+# How to install the new version of paradigma_brige
+Paradigma bridge is the new version which supports the full memory map of the paradigma as well as the MQTT interface to read and modify variables.
+The module can be executed using the command line:
+
+ptyhon3 -m paradigma_bridge.main.py
 
 
 # Message of Paradigma
