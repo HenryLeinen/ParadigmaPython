@@ -3,16 +3,12 @@ import logging
 from dataclasses import dataclass
 
 
-log = logging.getLogger(__name__)
-
-
-
 
 
 class SerialFrameParser:
 	START_BYTES = {0x0A, 0xFC, 0xFD}
 
-	def __init__(self, on_frame_callback):
+	def __init__(self, on_frame_callback, log):
 		# Parser state
 		self.on_frame_callback = on_frame_callback
 		self._listen_state = "WAIT_CMD"
@@ -92,7 +88,7 @@ class SerialFrameParser:
 
 			if (self._listen_checksum & 0xFF) == 0:
 				if self._listen_invalid_chars > 0:
-					log.error(
+					sefl.log.error(
 						"Recorded %d invalid characters during LISTEN",
 						self._listen_invalid_chars
 					)
@@ -102,10 +98,10 @@ class SerialFrameParser:
 				self.on_frame_callback(cmd, payload)
 
 			else:
-				log.debug("Checksum error in LISTEN")
+				sefl.log.debug("Checksum error in LISTEN")
 
 				if self._listen_invalid_chars > 0:
-					log.error(
+					sefl.log.error(
 						"Recorded %d invalid characters during LISTEN",
 						self._listen_invalid_chars
 					)
@@ -115,6 +111,6 @@ class SerialFrameParser:
 			return
 
 		# Safety fallback
-		log.error("Unknown parser state: %s. Resetting.", self._listen_state)
+		sefl.log.error("Unknown parser state: %s. Resetting.", self._listen_state)
 		self._reset_listen_state()
 

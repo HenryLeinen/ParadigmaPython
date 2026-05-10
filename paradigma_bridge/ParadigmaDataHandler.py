@@ -13,7 +13,6 @@ import paho.mqtt.client as mqtt
 from typing import Dict, Optional, Iterable, Callable
 from paradigma_bridge.RegisterHandler import RegisterHandler as RegisterHandler
 
-log = logging.getLogger(__name__)
 
 
 PERIODIC_TASK_TIME	= 300 # seconds
@@ -135,8 +134,9 @@ class StopMemoryWatch:
 
 
 class ParadigmaMessageParser:
-	def __init__(self):
-		# Map for Betriebsmodes
+	def __init__(self, log):
+		self.log = log
+		# Map for Betriebsmode
 		self.modes = { 
 				'0': "Programm 1",
 		                '1': "Programm 2",
@@ -189,7 +189,7 @@ class ParadigmaMessageParser:
 		try:
 			return self.reverse_modes[mode]
 		except Exception as exc:
-			log.error(f"Failed to lookup Betriebsmode : {mode}")
+			self.log.error(f"Failed to lookup Betriebsmode : {mode}")
 		return None
 
 
@@ -229,7 +229,7 @@ class ParadigmaMessageParser:
 				val = df.decoder(data[0:df.length])
 			else:
 				print (f"MISSING DECODER for {df.name}")
-				log.error (f"MISSING DECODER for {df.name}")
+				self.log.error (f"MISSING DECODER for {df.name}")
 				val = int.from_bytes(data[0:df.length], "big")
 			print (f"Setting {df.name} to value {val}, from {data}")
 			elements.append((df.name, val))

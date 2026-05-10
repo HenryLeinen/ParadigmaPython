@@ -9,6 +9,7 @@ from typing import Any
 from typing import Dict, Optional, Iterable, Callable
 
 
+days = [ "mo", "di", "mi", "do", "fr", "sa", "so" ]
 
 
 
@@ -36,6 +37,37 @@ def encode_date(d:date) -> bytes:
 
 def encode_uint8(d:int) -> bytes:
 	return d.to_bytes(1, "big")
+
+
+def decode_time_table_to_json(data: bytes) -> str:
+	timeTable = {}
+
+	for i, day in enumerate(days):
+		timeTable[day] = {
+			"time": list(data[     i*8:     (i+1)*8]),
+			"level":list(data[56 + i*8:56 + (i+1)*8])
+		}
+
+	json_string = json.dumps(timeTable)
+	return json_string
+
+
+def encode_time_table_from_json(timeTable: bytes) -> bytes:
+	data = bytearray()
+
+	# Append all time entries
+	for day in days:
+		if day in timeTable:
+			data.extend(timeTable[day]["time"])
+
+	# Append all level entries
+	for day in days:
+		if day in timeTable:
+			data.extend(timeTable[day]["level"])
+
+	return data
+
+
 
 
 @dataclass
@@ -138,7 +170,53 @@ REGISTER_DEFINITIONS = [
 		data_dictionary="In 0.1K",
 		decoder = decode_temperature,
 		encoder = encode_temperature
-	)
+	),
+	RegisterDefinition(
+		name="Heizzeitprogramm 1 HK1",
+		address = 0x002C,
+		length = 14*8,
+		description = "Heizzeitprogramm 1 (von 3)  des ersten Heizkreises",
+		data_dictionary="Table",
+		decoder = decode_time_table_to_json,
+		encoder = encode_time_table_from_json
+	),
+	RegisterDefinition(
+		name="Heizzeitprogramm 2 HK1",
+		address = 0x009C,
+		length = 14*8,
+		description = "Heizzeitprogramm 2 (von 3)  des ersten Heizkreises",
+		data_dictionary="Table",
+		decoder = decode_time_table_to_json,
+		encoder = encode_time_table_from_json
+	),
+	RegisterDefinition(
+		name="Heizzeitprogramm 3 HK1",
+		address = 0x010C,
+		length = 14*8,
+		description = "Heizzeitprogramm 3 (von 3)  des ersten Heizkreises",
+		data_dictionary="Table",
+		decoder = decode_time_table_to_json,
+		encoder = encode_time_table_from_json
+	),
+	RegisterDefinition(
+		name="Warmwasserzeitprogramm 1",
+		address = 0x0317,
+		length = 14*8,
+		description = "Warmwasser Programm 1 (von 2)",
+		data_dictionary="Table",
+		decoder = decode_time_table_to_json,
+		encoder = encode_time_table_from_json
+	),
+	RegisterDefinition(
+		name="Warmwasserzeitprogramm 2",
+		address = 0x0387,
+		length = 14*8,
+		description = "Warmwasserprogramm 2 (von 2)",
+		data_dictionary="Table",
+		decoder = decode_time_table_to_json,
+		encoder = encode_time_table_from_json
+	),
+
 ]
 
 

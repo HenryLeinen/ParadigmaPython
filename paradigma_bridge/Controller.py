@@ -15,7 +15,6 @@ from paradigma_bridge.SerialFrameParser import SerialFrameParser
 from paradigma_bridge.ParadigmaDataHandler import ParadigmaMessageParser
 
 
-log = logging.getLogger(__name__)
 
 
 
@@ -131,8 +130,9 @@ class StopMemoryWatch:
 	length: int | None = None
 
 class Controller:
-	def __init__(self, ser, mqtt_client):
+	def __init__(self, ser, mqtt_client, log):
 		self.ser = ser
+		self.log = log
 		self.PERIODIC_TASK_TIME	= 300 # seconds
 		self.dataset1_received = False
 		self.dataset2_received = False
@@ -146,9 +146,9 @@ class Controller:
 
 		self.running = True
 
-		self.parser = SerialFrameParser(self._on_serial_frame)
+		self.parser = SerialFrameParser(self._on_serial_frame, log)
 
-		self.msg_parser = ParadigmaMessageParser()
+		self.msg_parser = ParadigmaMessageParser(log)
 
 		self.last_query_ts = 0.0
 
@@ -184,12 +184,12 @@ class Controller:
 					await asyncio.sleep(0.01)
 
 			except serial.SerialException as exc:
-				log.exception("Serial read error")
+				self.log.exception("Serial read error")
 				await self.event_queue.put(LogEvent(f"Serial read error: {exc}"))
 				await asyncio.sleep(2.0)
 
 			except Exception as exc:
-				log.exception("Unexpected serial reader error")
+				self.log.exception("Unexpected serial reader error")
 				await self.event_queue.put(LogEvent(f"Unexpected serial reader error: {exc}"))
 				await asyncio.sleep(1.0)
 
@@ -200,16 +200,16 @@ class Controller:
 
 			try:
 				frame = self._build_frame(msg.request, msg.payload)
-				log.debug("Serial TX: %s", frame.hex(':'))
+				self.log.debug("Serial TX: %s", frame.hex(':'))
 				await self.event_queue.put(LogEvent(f"**** Serial TX: {frame.hex(':')}"))
 				await asyncio.to_thread(self.ser.write, frame)
 
 			except serial.SerialException as exc:
-				log.exception("Serial write error")
+				self.log.exception("Serial write error")
 				await self.event_queue.put(LogEvent(f"Serial write error: {exc}"))
 
 			except Exception as exc:
-				log.excpetion("Unexpected serial writer error")
+				self.log.excpetion("Unexpected serial writer error")
 				await self.event_queue.put(LogEvent(f"Unexpected serial writer error: {exc}"))
 
 			finally:
@@ -225,11 +225,11 @@ class Controller:
 				await asyncio.sleep(frequency_s)
 
 		except asyncio.CancelledError:
-			log.error ("WATCH TASK CANCELLED")
+			self.log.error ("WATCH TASK CANCELLED")
 			raise
 
 		except Exception as e:
-			log.error (f"WATCH TASK ERROR: {type(e).__name__}: {e}")
+			self.log.error (f"WATCH TASK ERROR: {type(e).__name__}: {e}")
 			raise
 
 
@@ -305,7 +305,7 @@ class Controller:
 
 		if isinstance(event, TimerTick):
 			# periodic request every 5 minutes
-			log.info("Periodic serial query triggered")
+			self.log.info("Periodic serial query triggered")
 			actions.append(SendSerial(request = CMD_START_MONITORING, payload = []))
 			self.last_query = time.time()
 			self.awaiting_response = True
@@ -333,7 +333,7 @@ class Controller:
 		elif isinstance(event, MqttCommand):
 			if event.topic == "paradigma/heating/setmode":
 				''' check if heating mode exists and convert it to the associated number '''
-				log.info (f"Handle MQTT event paradigma/heating/setmode Payload {event.payload}")
+				self.log.info (f"Handle MQTT event paradigma/heating/setmode Payload {event.payload}")
 				val = self.msg_parser.LookupMode(str(event.payload))
 				if val == None:
 					actions.append(LogMessage(f"Invalid Heating Mode {event.payload}"))
@@ -342,22 +342,51 @@ class Controller:
 					actions.append(SendSerial(request=CMD_WRITE_MEMORY, payload=mypayload))
 					actions.append(LogMessage(f"Sending cmd=0x0A, payload={mypayload}"))
 			elif event.topic == "paradigma/heating/gettemperatures":
-				log.info (f"Handle MQTT event paradigma/heating/gettemperatures Payload {event.payload}")
+				self.log.info (f"Handle MQTT event paradigma/heating/gettemperatures Payload {event.payload}")
 				mypayload = b'\x00\x05\x06'
 				actions.append(LogMessage(f"Sending cmd=0x0A, payload={mypayload}"))
 				actions.append(SendSerial(request=CMD_READ_MEMORY, payload=mypayload))
 			elif event.topic == "paradigma/heating/settemperatures":
-				log.info (f"Handle MQTT event paradigma/heating/settemperatures Payload {event.payload}")
+				self.log.info (f"Handle MQTT event paradigma/heating/settemperatures Payload {event.payload}")
 #				mypayload = CMD_WRITE_MEMORY + b'\x00\x05\x06' + 
 				pass
 			elif event.topic == "paradigma/heating/getferien":
-				log.info (f"Handle MQTT event paradigma/heating/getferien Payload {event.payload}")
+				self.log.info (f"Handle MQTT event paradigma/heating/getferien Payload {event.payload}")
 				mypayload = b'\x00\x0b\x04'
 				actions.append(LogMessage(f"Sending cmd=0x0A, payload={mypayload}"))
 				actions.append(SendSerial(request=CMD_READ_MEMORY, payload=mypayload))
+			elif event.topic == "paradigma/heating/gettimetable":
+				self.log.info (f"Handle MQTT even paraidmga/heating/gettimetable Payload {event.payload}")
+				start = -1
+				length = 112
+				id = int(event.payload)
+				if id == 11:
+					start = 0x002c
+				elif id == 12:
+					start = 0x009c
+				elif id == 13:
+					start = 0x010c
+				elif id == 21:
+					start = 0x01B2
+				elif id == 22:
+					start = 0x0222
+				elif id == 23:
+					start = 0x0292
+				elif id == 1:
+					start = 0x0317
+				elif id == 2:
+					start = 0x0387
+				else:
+					actions.append(LogMessage(f"Unknown Zeitprogramm {id} specified in MQTT {event.topic}"))
+					self.log.debug(f"Unknown Zeitprogram {id} specified in MQTT {event.topic}")
+				if start != -1:
+					mypayload = bytes([start>>8, start&0xff, length&0xff])
+					actions.append(SendSerial(request=CMD_READ_MEMORY, payload=mypayload))
+					actions.append(LogMessage(f"Sending cmd=0x0A, payload={mypayload}"))
+
 			elif event.topic == "paradigma/heating/update_interval":
 				# Set a new frequency for the task
-				log.info (f"Handle MQTT event paradigma/heating/update_interval Payload {event.payload}")
+				self.log.info (f"Handle MQTT event paradigma/heating/update_interval Payload {event.payload}")
 				update_interval = int(event.payload)
 				if update_interval > 15 and update_interval < 300:
 					actions.append(LogMessage(f"PERIODIC_TASK_TIME was changed from {self.PERIODIC_TASK_TIME}sec to {update_interval}sec"))
@@ -367,7 +396,7 @@ class Controller:
 
 			elif event.topic == "paradigma/heating/temperatures":
 				# Set new temperatures in HEIZKREIS 1
-				log.info (f"Handle MQTT event paradigma/heating/temperatures Payload {event.payload}")
+				self.log.info (f"Handle MQTT event paradigma/heating/temperatures Payload {event.payload}")
 				required = [ "heizen", "komfort", "absenken"]
 				heizen = 18.0
 				komfort = 22.0
@@ -382,10 +411,10 @@ class Controller:
 							actions.append(LogMessage(f"TODO: change temperatures to : heizen={heizen}, komfort={komfort}, absenken={absenken}!"))
 				except json.JSONDecodeError as exc:
 					actions.append(LogMessage(f"Failed to decode the payload of paradigma/heating/temperatures : {event.payload}"))
-					log.error(f"Failed to decode the payload of paradigma/heating/temperatures : {event.payload}")
+					self.log.error(f"Failed to decode the payload of paradigma/heating/temperatures : {event.payload}")
 				pass
 			elif event.topic == "paradigma/heating/readmemory":
-				log.info (f"Handle MQTT event paradigma/heating/readmemory Payload {event.payload}")
+				self.log.info (f"Handle MQTT event paradigma/heating/readmemory Payload {event.payload}")
 				startaddr = -1
 				length = -1
 				frequency = -1
@@ -426,10 +455,10 @@ class Controller:
 
 				except json.JSONDecodeError as exc:
 					actions.append(LogMessage(f"Failed to decode the payload of {event.topic} : {event.payload} with {exc}"))
-					log.error(f"Failed to decode the payload of paradigma/heating/readmemory : {event.payload} with {exc}")
+					self.log.error(f"Failed to decode the payload of paradigma/heating/readmemory : {event.payload} with {exc}")
 
 			else:
-				log.debug (f"Handle unknown MQTT event  Payload {event.payload}")
+				self.log.debug (f"Handle unknown MQTT event  Payload {event.payload}")
 				actions.append(LogMessage(f"Unknown MQTT topic: {event.topic}"))
 
 
@@ -439,11 +468,11 @@ class Controller:
 				(retval, data) = self.msg_parser.parseMessage(event.cmd, event.payload)
 			except ProtocolError as exc:
 				actions.append(LogMessage(f"Protocol Error: {exc}"))
-				log.exception(f"Protocol Error: {exc}")
+				self.log.exception(f"Protocol Error: {exc}")
 				return actions
 			except Exception as exc:
 				actions.append(LogMessage(f"Unexpected Parser Error: {exc}"))
-				log.exception(f"Unexpected Parser Error: {exc}")
+				self.log.exception(f"Unexpected Parser Error: {exc}")
 				return actions
 
 			if retval == CONFIRM_START_MONITORING:
@@ -451,14 +480,14 @@ class Controller:
 				self.dataset1_received = False
 				self.dataset2_received = False
 #				actions.append(LogMessage("COM: Start Monitoring Command confirmed"))
-				log.info("COM: Start Monitoring Command confirmed")
+				self.log.info("COM: Start Monitoring Command confirmed")
 			elif retval == CONFIRM_STOP_MONITORING:
 #				actions.append(LogMessage("COM: Stop Monitoring Command confirmed"))
-				log.info("COM: Stop Monitoring Command confirmed")
+				self.log.info("COM: Stop Monitoring Command confirmed")
 				self.awaiting_response = False
 			elif retval == CONFIRM_START_READ_VERSION:
 #				actions.append(LogMessage("COM: Start Read Version Command confirmed"))
-				log.info("COM: Start Read Version Command confirmed")
+				self.log.info("COM: Start Read Version Command confirmed")
 				self.awaiting_version_info = True
 			elif retval == VERSION_INFO:
 				actions.append(LogMessage(f"COM: Version ist {self.msg_parser.parseVersion(data)}"))
@@ -466,14 +495,14 @@ class Controller:
 					self.awaiting_version_info = False
 				else:
 #					actions.append(LogMessage(f"COM: Recevied repeated  Version info"))
-					log.info(f"COM: Recevied repeated  Version info")
+					self.log.info(f"COM: Recevied repeated  Version info")
 				actions.append(SendSerial(request=CMD_STOP_READ_VERSION, payload=[]))
 			elif retval == CONFIRM_STOP_READ_VERSION:
 #				actions.append(LogMessage("COM: Stop Read Version Command confirmed"))
-				log.info("COM: Stop Read Version Command confirmed")
+				self.log.info("COM: Stop Read Version Command confirmed")
 			elif retval == CONFIRM_WRITE_MEMORY:
 #				actions.append(LogMessage("COM: Write memory Command confirmed"))
-				log.info("COM: Write memory Command confirmed")
+				self.log.info("COM: Write memory Command confirmed")
 			elif retval == DATASET1:
 				actions.append(LogMessage("COM: DATASET1 received"))
 				elements = self.msg_parser.parseDataset1(data)
@@ -498,7 +527,7 @@ class Controller:
 					actions.append(PublishMqtt(topic=element[0], payload=element[1]))
 			elif retval == MEMORY:
 #				actions.append(LogMessage("COM: Read message response"))
-				log.info("COM: Read message response")
+				self.log.info("COM: Read message response")
 				address = data[0]
 				length = data[1]
 				key = (address, length)
@@ -519,7 +548,7 @@ class Controller:
 
 			else:
 				actions.append(LogMessage("Received invalid COM Message " + str([f"{d:02X}" for d in event.payload])))
-				log.error("Received invalid COM Message " + str([f"{d:02X}" for d in event.payload]))
+				self.log.error("Received invalid COM Message " + str([f"{d:02X}" for d in event.payload]))
 		else:
 			actions.append(LogMessage(f"Unhandled event type: {type(event).__name__}"))
 
