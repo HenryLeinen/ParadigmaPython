@@ -130,16 +130,25 @@ class StopMemoryWatch:
 	length: int | None = None
 
 class Controller:
-	def __init__(self, ser, mqtt_client, log):
+	def __init__(self, ser, log):
 		self.ser = ser
 		self.log = log
+		# Setup the MQTT client
+		self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+		self.client.on_connect = self._onConnect
+		self.client.on_disconnect = self._onDisconnect
+		self.client.on_message = self._onMessage
+		self.client.connect("leinihomesrv.local", 1883, 60)
+		self.client.user_data_set([])
+		self.client.loop_start()
+		self.client.reconnect_delay_set(10, 600)
+		self.client.subscribe("paradigma/heating/#")
+		# Setup internal variables
 		self.PERIODIC_TASK_TIME	= 300 # seconds
 		self.dataset1_received = False
 		self.dataset2_received = False
 		self.awaiting_response = False
 		self.awaiting_version_info = False
-
-		self.mqtt_client = mqtt_client
 
 		self.event_queue = asyncio.Queue()
 		self.serial_tx_queue = asyncio.Queue()
@@ -154,8 +163,38 @@ class Controller:
 
 		self.memory_watch_tasks = {}
 
+
+
+	# -----------------------------------
+	# MQTT Client callbacks
+	# -----------------------------------
+	def _onConnect(self, client, userdata, message, rc, properties):
+		print("MQTT: Successfully connected to MQTT broker")
+		self.log.info("MQTT: Successfully connected to MQTT broker")
+
+	def _onDisconnect(self,client, userdata, disconnect_flags, rc, properties):
+		print("MQTT: Disconnection from MQTT broker")
+		self.log.debug("MQTT: Disconnected from MQTT broker !!!")
+
+	def _onMessage(self, client, userdata, message):
+		try:
+			payload = message.payload.decode("utf-8").strip()
+		except UnicodeDecodeError:
+			log.error("Invalid MQTT payload encoding on topic %s", message.topic)
+			return
+		self.on_mqtt_message(topic=message.topic, payload=payload)
+
+
+	def subscribe_mqtt(self):
+		self.client.connect("leinihomesrv.local", 1883, 60)
+		self.client.user_data_set([])
+		self.client.subscribe("paradigma/heating/#")
+
 	def publish_mqtt(self, topic, payload):
-		self.mqtt_client.publish(topic, payload)
+		if not self.client.is_connected():
+			self.client.reconnect()
+			self.log.error("MQTT: was disconnected when publishing. Tried reconnect!")
+		self.client.publish(topic, payload)
 
 	# -----------------------------------
 	# Event producers
@@ -539,12 +578,18 @@ class Controller:
 					mqtt_payload = ",".join(f"0x{x:02X}" for x in data[2])
 					actions.append(PublishMqtt(topic="paradigma/heating/readMemory/cyclic", payload=mqtt_payload))
 				else:
+					Zeitprogramme = ["Heizzeitprogramm 1 HK1", "Heizzeitprogramm 2 HK1", "Heizzeitprogramm 3 HK1", "Heizzeitprogramm 1 HK2", "Heizzeitprogramm 2 HK2", "Heizzeitprogramm 3 HK2", "Warmwasserzeitprogramm 1", "Warmwasserzeitprogramm 2"]
 					elements = self.msg_parser.parseMemory(address, length, data[2])
-					payload = dict(elements)
-#					print (type(payload))
-#					print (payload)
-					mqtt_payload = json.dumps(payload, ensure_ascii=False)
-					actions.append(PublishMqtt(topic="paradigma/heating/readMemory", payload = mqtt_payload))
+					for element in elements:
+						if element[0] in Zeitprogramme:
+							topic = "paradigma/heating/read/" + element[0]
+							payload = element[1]
+							mqtt_payload = json.dumps(payload, ensure_ascii=False)
+							actions.append(PublishMqtt(topic=topic, payload = mqtt_payload))
+						else:
+							payload = dict(elements)
+							mqtt_payload = json.dumps(payload, ensure_ascii=False)
+							actions.append(PublishMqtt(topic="paradigma/heating/readMemory", payload = mqtt_payload))
 
 			else:
 				actions.append(LogMessage("Received invalid COM Message " + str([f"{d:02X}" for d in event.payload])))

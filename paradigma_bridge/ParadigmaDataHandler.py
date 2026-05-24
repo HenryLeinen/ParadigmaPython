@@ -265,6 +265,7 @@ class ParadigmaMessageParser:
 #		elements.append((base+"Heizkreis_1/Vorlaufsoll",	self._cvtToTemperature(ds, 6)))
 		elements.append((base+"Warmwasser/Soll",		self._cvtToTemperature(ds, 8)))
 		elements.append((base+"Puffer/Soll",			self._cvtToTemperature(ds,10)))
+		elements.append((base+"Puffer/Unknown",			self._cvtToUInt(ds,12, 2)))
 		elements.append((base+"Kessel/Betriebsstunden",		self._cvtToUInt(ds,14,4)))
 		elements.append((base+"Kessel/Starts",			self._cvtToUInt(ds,18,4)))
 		elements.append((base+"Kessel/StoercodeText",		self._cvtToStoercode(ds,22)))

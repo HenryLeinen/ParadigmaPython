@@ -88,7 +88,7 @@ class SerialFrameParser:
 
 			if (self._listen_checksum & 0xFF) == 0:
 				if self._listen_invalid_chars > 0:
-					sefl.log.error(
+					self.log.error(
 						"Recorded %d invalid characters during LISTEN",
 						self._listen_invalid_chars
 					)
@@ -98,7 +98,7 @@ class SerialFrameParser:
 				self.on_frame_callback(cmd, payload)
 
 			else:
-				sefl.log.debug("Checksum error in LISTEN")
+				self.log.debug("Checksum error in LISTEN")
 
 				if self._listen_invalid_chars > 0:
 					sefl.log.error(
